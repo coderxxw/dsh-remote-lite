@@ -330,6 +330,8 @@ During development, install with `link:` into a profile and restart DSH after ed
 
 Derived from [dsh-mini-remote](https://github.com/xingzhen199186/dsh-mini-remote) by [@xingzhen199186](https://github.com/xingzhen199186); this package restructures it around two transports and zero-command-line deployment.
 
+The icon is based on Twemoji's 🐳 ([CC-BY 4.0](https://github.com/jdecked/twemoji)), recoloured to DeepSeek blue (`#4D6BFE`). The DeepSeek name and whale mark belong to their owner; referenced here only to indicate ecosystem.
+
 ## License
 
 [MIT](LICENSE) © [coderxxw](https://github.com/coderxxw)

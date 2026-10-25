@@ -330,6 +330,8 @@ npm run check   # 语法检查
 
 源自 [dsh-mini-remote](https://github.com/xingzhen199186/dsh-mini-remote)（[@xingzhen199186](https://github.com/xingzhen199186)），本包在其基础上重构为两条连接通路与零命令行部署。
 
+图标基于 [Twemoji](https://github.com/jdecked/twemoji) 的 🐳（CC-BY 4.0），重新配色为 DeepSeek 品牌蓝（`#4D6BFE`）。DeepSeek 名称与鲸鱼标志归其所有者所有，此处仅作生态归属说明。
+
 ## 许可证
 
 [MIT](LICENSE) © [coderxxw](https://github.com/coderxxw)

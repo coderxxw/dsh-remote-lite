@@ -1,9 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- 底色：产品深色主题的底（#0a0f16 略提亮一档），圆角方形 -->
-  <rect width="512" height="512" rx="112" fill="#0E1A28"/>
-  <!-- 手机：描边用页面的 ice 色，屏幕用面板色 -->
-  <rect x="170" y="96" width="172" height="320" rx="32" fill="#16232F" stroke="#A9C8E8" stroke-width="20"/>
-  <!-- 终端提示符：金色箭头 + ice 光标块，只说一件事——在这里能敲指令 -->
-  <path d="M208 226 L244 258 L208 290" fill="none" stroke="#C9A55C" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="262" y="266" width="46" height="26" rx="8" fill="#A9C8E8"/>
+  <!-- 底：DeepSeek 品牌蓝 -->
+  <rect width="512" height="512" rx="112" fill="#4D6BFE"/>
+  <!-- 鲸鱼图形源自 Twemoji 的 🐳（CC-BY 4.0），此处重新配色为品牌蓝底 + 白鲸 -->
+  <g transform="translate(66.6 66.6) scale(10.524)">
+    <path fill="#FFFFFF" d="M32 12c2.122-2.122 5 14.312-3 21-2.757 2.305-6 2.969-8 2.969-2.371 0-10.029.031-13 .031-7.18 0-8-4.925-8-11s.82-11 8-11c6 0 10 2 13 3.996 4.977 3.312 5.992 3.861 8 2.004 3.213-2.97 1-6 3-8z"/>
+    <path fill="#BFCCFF" d="M34.003 23c-.465 3.727-2.041 7.523-5.003 10-2.757 2.305-6 2.969-8 2.969-2.371 0-10.029.031-13 .031-4.035 0-6.062-1.555-7.062-3.996C.157 30.102 4 33 15 33c14 0 17-5 19.003-10z"/>
+    <path fill="#FFFFFF" d="M32 14c4.123 0 4-5 4-7s-2 1-5 2-7-2-6 0 3 5 7 5z"/>
+    <path fill="#BFCCFF" d="M10 7c0 2.209-.896 6-2 6S6 9.209 6 7s.896-2 2-2 2-.209 2 2z"/>
+    <path fill="#BFCCFF" d="M8 5c0-3-6-2-6 0s3 1 4 3 2-3 2-3zm0 0c0-3 6-2 6 0s-3 1-4 3-2-3-2-3z"/>
+    <circle fill="#4D6BFE" cx="6.5" cy="25.5" r="1.5"/>
+  </g>
 </svg>
