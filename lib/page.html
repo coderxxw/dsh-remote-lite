@@ -902,6 +902,15 @@
      跟 .active（当前所在档位）用不同颜色区分——一个是「将要去」，一个是「已在」。 */
   .seg button.armed { background: var(--danger, #c0392b); color: #fff; }
   .nav-note { padding: 10px 16px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+  /* 「更多（还有 N 个）／收起」：一个工作区默认只亮 5 条（2026-10-25）。
+     它不是 .sess —— 长按归档是会话行的事，这个按钮不该被长按菜单误认；
+     所以样式单独一份，看着像列表的延伸而不是又一个会话。 */
+  .sess-more {
+    display: block; width: 100%; text-align: left; font: inherit; cursor: pointer;
+    padding: 10px 16px 12px 34px; color: var(--ice); font-size: 12.5px;
+    background: none; border: none;
+  }
+  .sess-more:active { opacity: .6; }
   /* 「这不是全部」：垫在聊天内容最上面，往上翻到顶才看得见，不抢内容。 */
   .history-note {
     margin: 0 0 14px; padding: 8px 12px; border: 1px dashed var(--line);
@@ -4351,6 +4360,10 @@
   var navPresets = null;   // Agent 模式清单（2026-10-04：新建会话时手机上也要能选模式）
   var navPresetsLoaded = false;
   var navPickerWs = '';    // 正在挑模式的那个工作区（清单行内展开在它的「新建会话」下）
+  // 2026-10-25 用户要求：一个工作区默认只亮前 5 个会话，底下放一个「更多」开关。
+  // workspaceId -> true（点开过更多）。收起工作区时不清——再展开还是全量，
+  // 用户既然点过一次就是想看完；要复位走刷新（见 loadWorkspaces(true) 那条路）。
+  var navShowAll = {};
 
   function openNav() {
     $('nav').classList.add('open');
@@ -4491,17 +4504,29 @@
     var got = navSessions[wsId];
     if (!got) return html + '<div class="placeholder">正在读取…</div>';
     if (!got.sessions.length) return html + '<div class="placeholder">这个工作区还没有会话。</div>';
+    // 2026-10-25 用户要求：默认只亮前 5 个，剩下的收进「更多」。
+    // 收进来的不是删掉——总数（got.total）和排序都不变，只是先少画几行。
+    var VISIBLE = 5;
+    var showAll = Boolean(navShowAll[wsId]);
+    var shown = showAll ? got.sessions : got.sessions.slice(0, VISIBLE);
     var cur = state.boundSessionId;
-    html += got.sessions.map(function (s) {
+    html += shown.map(function (s) {
       // 没有标题就用日期——原来退到取 id 的前 8 位当名字，而本机真有一个会话的 id
       // 以「session-」开头，于是整列都显示成一样的「session-」，等于没有名字。
       return '<button class="sess' + (s.id === cur ? ' cur' : '') + '" type="button"'
         + ' data-sess="' + escapeHtml(s.id) + '">'
         + (s.running ? '<span class="s-dot"></span>' : '')
         + '<span class="s-title">' + escapeHtml(s.title || '未命名会话') + '</span>'
-        + '<span class="s-meta">' + dayLabel(s.createdAt) + '</span>'
+        + '<span class="s-meta">' + dayLabel(s.lastActive || s.createdAt) + '</span>'
         + '</button>';
     }).join('');
+    // 「更多 / 收起」开关。剩几条要说出来——不然点开前不知道值不值得点。
+    // 列表真被服务端截断时（truncated）加一句提醒，别让用户以为 5 条就是全部。
+    if (got.sessions.length > VISIBLE) {
+      var rest = got.sessions.length - VISIBLE;
+      html += '<button class="sess-more" type="button" data-more-ws="' + escapeHtml(wsId) + '">'
+        + (showAll ? '收起' : '更多（还有 ' + rest + ' 个）') + '</button>';
+    }
     if (got.truncated) {
       html += '<div class="nav-note">只列了最近 ' + got.sessions.length + ' 条，共 '
         + got.total + ' 条。</div>';
@@ -4903,6 +4928,15 @@
     // 顺序上无所谓，但放在前面更清楚——这一支是动作，那一支是展开/收起。
     var fresh = at('.ws-new');
     if (fresh) { createSession(fresh.getAttribute('data-newws')); return; }
+    // 「更多（还有 N 个）／收起」：只切换显示数量，不重新拉数据——
+    // 数据本来就在（服务端一次给 60 条），重画一遍就行。
+    var more = at('.sess-more');
+    if (more) {
+      var wsId = more.getAttribute('data-more-ws');
+      navShowAll[wsId] = !navShowAll[wsId];
+      renderNav();
+      return;
+    }
     var head = at('.ws-head');
     if (!head) return;
     toggleWorkspace(head.parentNode.getAttribute('data-ws'));
