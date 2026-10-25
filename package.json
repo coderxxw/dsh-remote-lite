@@ -2,6 +2,7 @@
   "name": "dsh-remote-lite",
   "version": "1.0.0",
   "description": "用手机远程操作 DSH：填一个 Cloudflare API Token，插件自动建隧道、配 DNS、开 HTTPS，零命令行。",
+  "icon": "icon.svg",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -12,13 +13,16 @@
     "./package.json": "./package.json"
   },
   "files": [
+    "icon.svg",
     "lib/**/*.js",
     "lib/page.html",
     "client/client.js",
     "cordis.patch.yml",
     "LICENSE",
     "README.md",
-    "README.en.md"
+    "README.en.md",
+    "CHANGELOG.md",
+    "SECURITY.md"
   ],
   "engines": {
     "node": "^22.19.0 || >=24.0.0",

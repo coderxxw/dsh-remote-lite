@@ -121,6 +121,8 @@ The tunnel process is owned by the plugin. The binary is resolved from the confi
 
 - [Configuration reference](docs/SETTINGS.md) — every field, push-channel setup, scenario examples, troubleshooting commands
 - [Example configs](examples/) — complete LAN and public deployments
+- [Changelog](CHANGELOG.md) — release history
+- [Security policy](SECURITY.md) — threat model, credential storage, vulnerability reporting
 
 -----
 
