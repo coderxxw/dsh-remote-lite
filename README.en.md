@@ -1,59 +1,96 @@
+<p align="center">
+  <img src="icon.svg" width="96" height="96" alt="dsh-remote-lite">
+</p>
+
+<h1 align="center">dsh-remote-lite</h1>
+
+<p align="center">
+  DSH on your phone — pair over LAN or a Cloudflare tunnel, no command line required.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/node-%5E22.19.0%20%7C%7C%20%3E%3D24.0.0-brightgreen.svg" alt="Node"></a>
+  <a href="package.json"><img src="https://img.shields.io/badge/dsh-%3E%3D0.1.5--rc.2%20%3C1.0.0-4b8bbe.svg" alt="DSH"></a>
+  <a href="https://github.com/coderxxw/dsh-remote-lite/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"></a>
+</p>
+
+<p align="center">
+  <b>English</b> | <a href="README.md">简体中文</a>
+</p>
+
 ---
-description: "DSH mobile remote-control plugin (dsh-remote-lite): read sessions, send instructions and approve tool calls from a phone, over LAN or a Cloudflare tunnel — for users and deployers who need DSH away from the desktop."
-kind: "package-reference"
----
 
-# dsh-remote-lite
+`dsh-remote-lite` is a mobile remote control for DSH. It starts an HTTP + SSE server on the host (default `:3090`); scan the pairing QR code and a phone browser can browse workspaces and sessions, send instructions, approve tool calls, and switch models and permission presets. At home the LAN route is enough; away from home the same page is reachable through a Cloudflare tunnel.
 
-**DSH, on your phone.** The plugin starts an HTTP/SSE server on the host (default `:3090`); scan the pairing QR code and a phone browser can browse workspaces and sessions, send instructions, approve tool calls, and switch models and permission presets. Away from home, the same page is reachable through a Cloudflare tunnel — different address, same UI.
+The plugin does **not** proxy the desktop UI — the phone gets instructions and answers, with intermediate steps expanded on demand. It registers no system service, does not start at boot, and does not touch the hosts file: when DSH exits, the server stops.
 
-English | [中文](README.md)
+## Table of contents
 
-## Contents
-
-- [What it does](#what-it-does)
+- [Features](#features)
+- [Requirements](#requirements)
+- [Installation](#installation)
 - [Quick start](#quick-start)
-- [Install](#install)
-- [Access](#access)
-- [Config](#config)
+- [Usage](#usage)
+- [Configuration](#configuration)
 - [How it works](#how-it-works)
-- [Troubleshooting](#troubleshooting)
-- [Known limitations](#limitations)
-- [Development](#dev)
+- [API](#api)
+- [FAQ](#faq)
+- [Known limitations](#known-limitations)
+- [Roadmap](#roadmap)
+- [Contributing](#contributing)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
 
------
+## Features
 
-<a id="what-it-does"></a>
-## What it does
+- **Two transports.** Plaintext HTTP on the LAN works out of the box; the public route uses a Cloudflare tunnel, giving you HTTPS and a fixed hostname.
+- **Zero-command-line tunnelling.** Paste one Cloudflare API token and the plugin creates the tunnel, writes the ingress rule, writes the DNS record and starts `cloudflared`.
+- **Three display modes.** Frame shows only the latest answer, Chat shows full turns, Full also expands every step's reasoning and tool calls.
+- **A complete remote surface.** Send instructions (queue or steer while a turn is running), slash commands, file and photo upload, tool approvals, answers to questions, subagent inspection and follow-ups, model and permission switching.
+- **Session navigation.** Workspace → session tree, create sessions or workspaces, browse directories to pick a location; history is backfilled from session logs the plugin never witnessed.
+- **Lock-screen push.** Bark, ntfy and Telegram channels, plus service-worker system notifications (HTTPS only).
+- **Desktop view.** A built-in reverse proxy serves the desktop GUI on the phone, for the settings pages the mobile UI cannot reach.
+- **Verifiable runtime.** `/mini/api/version` returns a build fingerprint, so you can tell whether the process answering you is the code you just edited.
 
-| Capability | Where it lives on the phone |
-|---|---|
-| Sessions and workspaces | Left drawer: workspace → session tree; create sessions or workspaces, browse directories to pick a location |
-| Three display modes | "Frame" shows only the latest answer · "Chat" shows full turns · "Full" also expands every step's reasoning and tool calls |
-| Sending instructions | Bottom composer. Sending while a turn is running queues the message or steers into it (behaviour is configurable) |
-| Slash commands | Type `/` to list the commands available in this session, tap to fill, then send |
-| Attachments | Paperclip entry: choose a file or take a photo; uploads ride along with the next message |
-| Approvals and questions | When the desktop side asks for a tool approval or asks you a question, a card appears on the phone — allow, deny, or answer |
-| Subagents | A panel lists subagents; read their conversation, follow up, or stop one individually |
-| Parameters | Model, reasoning effort and permission preset are set per session, using the same policy as the desktop |
-| Desktop UI | "Advanced → Desktop UI" reverse-proxies the native DSH GUI, for the settings pages the mobile UI cannot reach |
-| External push | Bark / ntfy / Telegram when the phone is locked; system notifications when the page is in the background and served over HTTPS |
-| Plugins and version | The settings sheet shows loaded plugins, the DSH version, and this plugin's build fingerprint |
+## Requirements
 
------
+| Dependency | Version |
+| --- | --- |
+| Node.js | `^22.19.0 \|\| >=24.0.0` |
+| DSH | `>=0.1.5-rc.2 <1.0.0` |
 
-<a id="quick-start"></a>
+When the runtime does not match, DSH refuses to load the plugin and asks for an exact-version exemption.
+
+## Installation
+
+This package is **not published to npm**. Two install paths exist, and both require an explicit `--profile` — `dsh plugin` does not infer the target profile.
+
+```sh
+# From GitHub (tracks the latest commit on main)
+dsh plugin --profile web add github:coderxxw/dsh-remote-lite
+
+# From a local path (development; edits take effect on restart)
+dsh plugin --profile web add link:/path/to/dsh-remote-lite
+```
+
+On Windows the local form is `link:D:/path/to/dsh-remote-lite`.
+
+Confirm the entry landed in the profile's `dsh.profile.bundles`:
+
+```sh
+node -e "console.log(require(process.env.HOME + '/.dsh/profiles/web/package.json').dsh.profile.bundles)"
+```
+
+Without that entry the plugin will not load — and there is **no error**, just silence.
+
 ## Quick start
 
 ```sh
-# 1. install
-dsh plugin --profile web add github:coderxxw/dsh-remote-lite
-
-# 2. start
 dsh web
 ```
 
-3. Open the DSH Web UI → **Settings → Mobile remote** and scan the QR code, or use an address printed in the startup log:
+The startup log prints pairing addresses:
 
 ```
 [dsh-remote-lite] 已启动。手机打开下面任意一条（或到 DSH 设置 → 手机遥控 扫码）：
@@ -61,89 +98,44 @@ dsh web
 [dsh-remote-lite]   内网  http://10.0.0.5:3090/mini?token=xxxx
 ```
 
-The LAN route works out of the box. To connect from outside, add a [tunnel](#tunnel).
+With the phone on the same Wi-Fi, open the second address; or open the DSH Web UI → **Settings → Mobile remote** and scan the QR code.
 
------
+To connect from outside, see [Configuration](#configuration).
 
-<a id="install"></a>
-## Install
+## Usage
 
-This package is **not published to npm**. Two install paths exist, and both require an explicit `--profile` — `dsh plugin` does not infer the target profile.
-
-### From GitHub
-
-```sh
-dsh plugin --profile web add github:coderxxw/dsh-remote-lite
-```
-
-This resolves to the latest commit on `main`, so the installed version tracks the repository rather than a published release.
-
-### From a local path (development)
-
-For machines that already hold a clone and need edits to take effect immediately:
-
-```sh
-dsh plugin --profile web add link:/path/to/dsh-remote-lite
-```
-
-On Windows, write `link:D:/path/to/dsh-remote-lite`.
-
-### Confirm it actually loaded
-
-`dsh plugin add` appends the package name to the profile's `dsh.profile.bundles`. If that array lacks `"dsh-remote-lite"`, the plugin will not load — and there is **no error**, just silence.
-
-```sh
-node -e "console.log(require('C:/Users/<you>/.dsh/profiles/web/package.json').dsh.profile.bundles)"
-```
-
-### Version compatibility
-
-Install and startup check the runtime against the `engines` range:
-
-| Dependency | Range |
-|---|---|
-| Node.js | `^22.19.0 \|\| >=24.0.0` |
-| DSH | `>=0.1.5-rc.2 <1.0.0` |
-
-When it does not match, DSH refuses to load the plugin and asks for an exact-version exemption.
-
------
-
-<a id="access"></a>
-## Access
+### Access routes
 
 | Route | Address | Reach | Requires |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | LAN | `http://<host-ip>:3090/mini?token=<token>` | Same Wi-Fi | Nothing |
 | Public | `https://<hostname>/mini?token=<token>` | Any network | Cloudflare account + a domain |
 
-The LAN route is on by default: with `bindAddress: "auto"` the plugin binds every usable interface (virtual adapters are skipped) and keeps the loopback address so the pairing page opens on the desktop.
+With `bindAddress: "auto"` the plugin binds every usable interface (virtual adapters are skipped) and keeps loopback so the pairing page opens on the desktop. The token has a 12-character minimum; if unset, a 32-character hex string is generated on first start and persisted. It appears as a query parameter once, then lives in a cookie.
 
-<a id="tunnel"></a>
-### Configuring a tunnel
+### Display modes
 
-You need a Cloudflare API Token with:
+| Mode | Content |
+| --- | --- |
+| Frame | Only the latest answer; scrolls to its start when it settles |
+| Chat | The full back-and-forth; answers unbubbled, questions right-aligned |
+| Full | Chat plus each turn's reasoning and tool calls, interleaved in place |
 
-- `Account → Cloudflare Tunnel → Edit`
-- `Zone → DNS → Edit`
-- `Zone → Zone → Read`
+### Common actions
 
-Paste the token in the settings page → click "读取我的域名" → pick a domain and save. The plugin then **creates the tunnel, writes the ingress rule, writes the DNS record, and starts `cloudflared`** — no command line, no manual dashboard configuration.
+| Action | Entry point |
+| --- | --- |
+| Send an instruction | Bottom composer, enter to send |
+| Add while running | Send again — it queues, or steers at the next step boundary (configurable) |
+| Slash commands | Type `/` for the commands available in this session |
+| Attachments | Paperclip → choose a file or take a photo |
+| Approvals and questions | Cards appear automatically when the desktop side asks |
+| Subagents | Side panel: inspect, follow up, stop individually |
+| Model and permissions | Status bar and settings sheet |
 
-The same page also accepts the **run token** of a tunnel that already exists (`eyJ...`). That path skips every management API call, but the DNS record is yours to configure.
+## Configuration
 
-### The access token
-
-The token is viewable and editable in the settings page, with a **12-character minimum**. If unset on first start, the plugin generates a 32-character hex string and persists it. Changing it requires a plugin reload.
-
-The token travels as a query parameter on first visit and is then stored in a cookie. **The LAN route is plaintext HTTP**, so it is unsuitable on untrusted networks.
-
------
-
-<a id="config"></a>
-## Config
-
-Configuration lives at `$DSH_HOME/dsh-remote-lite/settings.json` (default `~/.dsh/dsh-remote-lite/settings.json`). Three keys form a working minimum:
+Configuration lives at `$DSH_HOME/dsh-remote-lite/settings.json` (default `~/.dsh/dsh-remote-lite/settings.json`). Minimal working config:
 
 ```json
 {
@@ -154,192 +146,190 @@ Configuration lives at `$DSH_HOME/dsh-remote-lite/settings.json` (default `~/.ds
 ```
 
 | Field | Default | Meaning | After editing |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `port` | `3090` | Port the phone connects to | Reload |
 | `bindAddress` | `"auto"` | `auto` / `127.0.0.1` / a specific IP | Reload |
 | `token` | empty | Access token; empty = generated on first start | Reload |
-| `maxHistory` | `50` | How many history entries the phone keeps per session | Reload |
-| `defaultMode` | `"minimal"` | Starting mode: `minimal` / `chat` / `full` | Live |
-| `tunnel.enabled` | `false` | Expose over a tunnel (off by default — putting the service on the public internet is the user's call) | Reload |
-| `tunnel.mode` | `"quick"` | `quick` (no account, URL changes every restart) / `named` (fixed domain) | Reload |
+| `maxHistory` | `50` | History entries kept per session on the phone | Reload |
+| `defaultMode` | `"minimal"` | `minimal` / `chat` / `full` | Live |
+| `tunnel.enabled` | `false` | Expose over a tunnel | Reload |
+| `tunnel.mode` | `"quick"` | `quick` (no account, URL changes on restart) / `named` (fixed domain) | Reload |
 | `tunnel.hostname` | empty | Domain for a named tunnel, e.g. `dsh.example.com` | Reload |
-| `tunnel.apiToken` | empty | Management API token, for automatic provisioning | Reload |
+| `tunnel.apiToken` | empty | Management API token for automatic provisioning | Reload |
 | `tunnel.tunnelToken` | empty | Run token of an existing tunnel; skips the management API | Reload |
-| `tunnel.accountId` | empty | Empty = the single account the token can see | Reload |
 | `notify.*` | empty | Bark / ntfy / Telegram push | Live |
 
-Field semantics, push-channel setup and per-item troubleshooting live in the [configuration reference](docs/SETTINGS.md).
+### Configuring a tunnel
 
-> One naming legacy: if `$DSH_HOME/dsh-mini-remote-lite` already exists, the plugin **reuses it** instead of creating `dsh-remote-lite` — renaming the directory would throw away the configured token and tunnel credentials.
+The plugin needs a Cloudflare API token with:
 
------
+- `Account → Cloudflare Tunnel → Edit`
+- `Zone → DNS → Edit`
+- `Zone → Zone → Read`
 
-<a id="how-it-works"></a>
+Paste it in the settings page → click "读取我的域名" → pick a domain and save. The plugin then creates the tunnel, writes the ingress rule, writes the DNS record, and starts `cloudflared`.
+
+You can also supply the **run token** of an existing tunnel (`eyJ...`): that path skips every management API call, but the DNS record is yours to configure.
+
+Field semantics, push-channel setup and per-item troubleshooting live in [docs/SETTINGS.md](docs/SETTINGS.md).
+
+> One naming legacy: if `$DSH_HOME/dsh-mini-remote-lite` already exists, the plugin reuses it instead of creating `dsh-remote-lite` — renaming the directory would discard the configured token and tunnel credentials.
+
 ## How it works
 
+```mermaid
+flowchart LR
+    P["Phone browser"]
+    S["server.js<br/>HTTP + SSE"]
+    A["DSH agent"]
+    I["index.js<br/>event subscription"]
+    D[("store.js<br/>latest / history / trajectory")]
+
+    P -- "POST /mini/api/send" --> S
+    S -- "submit instruction" --> A
+    A -- "session/event" --> I
+    I -- "write" --> D
+    I -- "SSE /mini/api/stream" --> P
+```
+
+The plugin subscribes to DSH's `session/event` and `agent/status`, replays execution progress into the shapes the phone needs, and pushes them over SSE; instructions travel back to the host as ordinary POSTs.
+
 <details>
-<summary>Implementation details — click to expand</summary>
+<summary><b>Design notes and source map</b></summary>
 
-### The round trip of one instruction
-
-```
-phone browser ──POST /mini/api/send──▶ plugin server.js
-                                        │ build MessageId, submit to the DSH session
-                                        ▼
-                                     DSH agent
-                                        │ session/event (turn/start, user/message,
-                                        │ assistant/message, tool/call, turn/end…)
-                                        ▼
-                                     index.js subscribes
-                                        │ events.js / trajectory.js classify
-                                        ├─▶ store.js (latest + history + trajectory)
-                                        └─▶ SSE /mini/api/stream ──▶ phone re-renders
-```
-
-The plugin does **not** proxy the desktop UI: the phone gets two things, instructions and answers, with intermediate steps expanded on demand.
-
-### Three design choices
+### Design choices
 
 1. **No runtime imports from `@deepseek-ai/*`.** The single exception is `@deepseek-ai/schemastery`, used only to declare `Config`. It is supplied by the host (`peerDependencies`), so a second copy never appears and cordis is never duplicated.
 2. **Its own `node:http` server, not `ctx.webServer`.** The host web server can only bind `127.0.0.1` or `0.0.0.0`; exposing the main GUI on `0.0.0.0` is unacceptable, while the plugin must bind exactly the interfaces its config names.
-3. **SSE instead of WebSocket.** Zero dependencies, `EventSource` reconnects on its own (the phone recovers after being backgrounded), and only server → phone push is needed — the reverse direction is an ordinary POST.
-
-Streaming uses **confirm before reveal**: `text-delta` text is buffered and never shown; a `tool-call-delta` marks the step as intermediate and the buffer is discarded (no narration flash); only when the step ends without a tool call is it confirmed as the final answer, flushed in full, then streamed frame by frame. The cost is first-token latency; the gain is that nothing appears and then vanishes.
+3. **SSE instead of WebSocket.** Zero dependencies, `EventSource` reconnects on its own, and only server → phone push is needed.
+4. **Streaming uses confirm-before-reveal.** `text-delta` text is buffered and never shown; a `tool-call-delta` discards the buffer entirely; only a step that ends without tool calls is confirmed as the final answer. The cost is first-token latency, the gain is that narration never flashes.
 
 ### Source map
 
 | Group | File | Responsibility |
-|---|---|---|
-| Entry | `lib/index.js` | Plugin entry: `apply` / `Config` / event subscription / settings routes / tunnel orchestration |
-| Transport | `lib/server.js` | Mobile HTTP + SSE server, all of `/mini/api/*` |
+| --- | --- | --- |
+| Entry | `lib/index.js` | `apply` / `Config` / event subscription / settings routes / tunnel orchestration |
+| Transport | `lib/server.js` | Mobile HTTP + SSE server |
 | | `lib/page.html` | Single-file mobile page (~395 KB of source) |
-| | `lib/page.js` | Page template injection (default mode, token gate, build fingerprint) and image assets |
-| | `lib/build.js` | Build fingerprint: answers "is the process replying to me the code I just edited?" |
-| | `lib/sw.js` | Service worker that exists only for system notifications; caches nothing |
-| Session data | `lib/events.js` | Raw events → visible text; decides which step counts as the final answer |
-| | `lib/history.js` | Replays a session log into chat history (same extractor as the live path) |
-| | `lib/trajectory.js` | Replays reasoning, tool calls and tool results into "process groups" |
-| | `lib/store.js` | In-memory state (latest answer / history / trajectory / queue / presence); disk is only for surviving restarts |
-| | `lib/log-tail.js` | Reads DSH session logs directly (zstd included) to backfill history the plugin never witnessed |
-| | `lib/tree.js` | Workspace → session tree for the left drawer |
-| | `lib/commands.js` | Folding slash-command events into a status line |
-| Caches | `lib/title-cache.js` | Session titles (7-day TTL) |
-| | `lib/session-meta-cache.js` | Session metadata cache |
-| | `lib/subagent-cache.js` | Subagent list cache (debounced + TTL) |
-| Capabilities | `lib/permissions.js` | Read and switch permission presets |
-| | `lib/browse.js` | Directory browsing and mkdir, for choosing workspace locations |
+| | `lib/page.js` | Template injection and image assets |
+| | `lib/build.js` | Build fingerprint |
+| | `lib/sw.js` | Service worker for notifications only; caches nothing |
+| Session data | `lib/events.js` | Raw events → visible text; decides which step is the final answer |
+| | `lib/history.js` | Replays session logs into chat history |
+| | `lib/trajectory.js` | Replays reasoning, tool calls and results into process groups |
+| | `lib/store.js` | In-memory state; disk only for surviving restarts |
+| | `lib/log-tail.js` | Reads session logs directly (zstd included) to backfill history |
+| | `lib/tree.js` | Workspace → session tree |
+| | `lib/commands.js` | Slash-command event folding |
+| Caches | `lib/title-cache.js`, `lib/session-meta-cache.js`, `lib/subagent-cache.js` | Titles, session metadata, subagent lists |
+| Capabilities | `lib/permissions.js` | Permission preset read/write |
+| | `lib/browse.js` | Directory browsing and mkdir |
 | | `lib/notify.js` | Bark / ntfy / Telegram push |
-| Tunnel | `lib/tunnel.js` | `cloudflared` lifecycle and readiness detection |
-| | `lib/cloudflared.js` | Binary lookup and on-demand download |
-| | `lib/cloudflare.js` | Management API: create tunnel, write ingress, write DNS |
-| | `lib/net.js` | Interface selection and bind-address resolution |
-| | `lib/pairing.js` | Pairing payload and QR code |
-| Mirror | `lib/mirror.js` | Reverse-proxies the desktop GUI through the plugin port (header-rewriting proxy, WebSocket passthrough) |
-| Settings UI | `client/client.js` | The **Mobile remote** tab inside DSH settings |
+| Tunnel | `lib/tunnel.js` | `cloudflared` lifecycle and readiness |
+| | `lib/cloudflared.js` | Binary lookup and download |
+| | `lib/cloudflare.js` | Tunnel creation, ingress, DNS |
+| | `lib/net.js`, `lib/pairing.js` | Interface selection, pairing payload and QR code |
+| Mirror | `lib/mirror.js` | Reverse proxy for the desktop GUI (WebSocket passthrough) |
+| Settings | `client/client.js` | The **Mobile remote** tab inside DSH settings |
 
-### Endpoints
+</details>
 
-On the plugin's own server (`:3090`):
+## API
 
-| Group | Path | Purpose |
-|---|---|---|
-| Page | `GET /mini`, `/mini/art/*`, `/mini/sw.js` | The page, artwork and inline images, service worker |
-| State | `GET /mini/api/state` | Full snapshot (latest answer, history, trajectory, queue, presence) |
-| | `GET /mini/api/stream` | The SSE channel |
-| | `GET /mini/api/history`, `/trajectory`, `/subagents`, `/version` | Paged history, execution trajectory, subagent list, build fingerprint |
-| Commands | `POST /mini/api/send`, `/command`, `/stop`, `/unqueue` | Send, run a slash command, stop, dequeue |
-| | `POST /mini/api/upload` | Attachment upload |
-| Interaction | `POST /mini/api/approval`, `/answer`, `/subagent/ask`, `/set-model`, `/permissions` | Approval, answer, follow up a subagent, switch model, switch permission preset |
-| Navigation | `GET /mini/api/workspaces`, `/browse`, `/browse/roots`; `POST /mini/api/bind`, `/browse/mkdir` | Session tree, directory browsing, bind session, mkdir |
-| Misc | `GET /mini/api/plugins`, `/models`, `/commands`, `/mirror` | Plugin list, model list, command table, mirror toggle |
+Main routes on the plugin's own server (`:3090`):
 
-On the host web server (default `:10001`), used by the settings tab:
+| Group | Path |
+| --- | --- |
+| Page | `GET /mini`, `/mini/art/*`, `/mini/sw.js` |
+| State | `GET /mini/api/state`, `/stream`, `/history`, `/trajectory`, `/subagents`, `/version` |
+| Commands | `POST /mini/api/send`, `/command`, `/stop`, `/unqueue`, `/upload` |
+| Interaction | `POST /mini/api/approval`, `/answer`, `/subagent/ask`, `/set-model`, `/permissions` |
+| Navigation | `GET /mini/api/workspaces`, `/browse`, `/browse/roots`; `POST /mini/api/bind`, `/browse/mkdir` |
+| Misc | `GET /mini/api/plugins`, `/models`, `/commands`, `/mirror` |
 
-| Path | Purpose |
-|---|---|
-| `GET /mini-remote/pairing` | Pairing payload (addresses, QR code, tunnel state) |
-| `POST /mini-remote/tunnel/zones` | Domains the token can see |
-| `POST /mini-remote/tunnel`, `/tunnel/named` | Start/stop and configure quick / named tunnels |
-| `POST /mini-remote/token` | Change the access token |
+On the host web server (default `:10001`), for the settings tab: `/mini-remote/pairing`, `/mini-remote/tunnel`, `/mini-remote/tunnel/zones`, `/mini-remote/tunnel/named`, `/mini-remote/token`.
 
 Every route checks the token; the settings group additionally accepts loopback requests only.
 
-### Build fingerprint
+## FAQ
 
-`lib/build.js` hashes a handful of source files into a short fingerprint, returned by `/mini/api/version`:
+<details>
+<summary>The plugin does not seem to load</summary>
+
+Check that `dsh.profile.bundles` contains `dsh-remote-lite`; with `link:` installs also make sure the `qrcode` dependency is installed in the plugin directory (`npm install`).
+</details>
+
+<details>
+<summary>The phone cannot open the page</summary>
+
+Check, in order: is `:3090` listening, did Windows Firewall allow the private network, are the phone and desktop on the same Wi-Fi.
+</details>
+
+<details>
+<summary>The page is stuck on "connecting"</summary>
+
+Open `/mini/api/version?token=<token>` and see whether it returns 200, then read the DSH log lines starting with `[dsh-remote-lite]`.
+</details>
+
+<details>
+<summary>The tunnel will not connect</summary>
+
+Turn off any proxy or VPN on the desktop (Clash and friends) first, then match the log keywords:
+
+| Keyword | Meaning |
+| --- | --- |
+| `Registered tunnel connection` | Success |
+| `Tunnel not found` | The tunnel was deleted; recreate it |
+| `Invalid request headers` | Wrong token type (management token vs run token) |
+| `timeout` / `no recent network activity` | Network layer unreachable; the plugin already pins `--protocol http2 --edge-ip-version 4` |
+</details>
+
+<details>
+<summary>No notifications arrive</summary>
+
+System notifications require a secure context (the tunnel provides HTTPS, plaintext LAN does not). Otherwise configure Bark / ntfy / Telegram.
+</details>
+
+<details>
+<summary>Code edits change nothing</summary>
+
+`page.html` and `sw.js` are read into memory at startup — **restart DSH**; reinstalling does nothing. Confirm with the build fingerprint:
 
 ```sh
 curl -s "http://127.0.0.1:3090/mini/api/version?token=<token>"
 # {"ok":true,"build":"dfa3c69b7b66","dshVersion":"0.2.1-rc.2","canCreateSession":true}
 ```
-
-After a restart, compare this before concluding anything about new versus old behaviour — the previous process keeps answering during a restart, which has misled us twice.
-
 </details>
 
------
-
-<a id="troubleshooting"></a>
-## Troubleshooting
-
-| Symptom | Check first |
-|---|---|
-| The plugin seems absent | Is `"dsh-remote-lite"` in `dsh.profile.bundles`? Is `node_modules/qrcode` installed (common with `link:` installs)? |
-| Phone cannot connect | Is `:3090` listening? Did Windows Firewall allow the private network? Same Wi-Fi? |
-| Page stuck on "connecting" | Hit `/mini/api/version` — 200 or not? Then read DSH log lines starting with `[dsh-remote-lite]` |
-| Token gate instead of the page | Wrong or changed token; carry the right `?token=`, or re-scan from the settings page |
-| Tunnel will not connect | See the keywords below; turn off any proxy/VPN (Clash and friends) on the desktop first |
-| No notifications | System notifications need a secure context (the tunnel provides HTTPS, plaintext LAN does not); otherwise configure Bark / ntfy / Telegram |
-| Code edits change nothing | `page.html` and `sw.js` are read into memory at startup — **restart DSH**; confirm with the build fingerprint |
-
-Tunnel log keywords:
-
-| Keyword | Meaning |
-|---|---|
-| `Registered tunnel connection` | Success |
-| `Tunnel not found` | The tunnel was deleted; recreate it |
-| `Invalid request headers` | Wrong token type (management token vs tunnel run token) |
-| `timeout` / `no recent network activity` | Network layer is unreachable; the plugin already pins `--protocol http2 --edge-ip-version 4` |
-
-No system service is registered, so the server stops when DSH exits. Caches such as `state.json` can be deleted at will; deleting `settings.json` or `token` means reconfiguring and re-pairing.
-
------
-
-<a id="limitations"></a>
 ## Known limitations
 
 - The LAN route is **plaintext HTTP** with no transport encryption, and the token travels as a query parameter — unsuitable on untrusted networks.
-- Cloudflare edge addresses are unreachable on some networks. The plugin pins `--protocol http2 --edge-ip-version 4` to work around it, which cannot cover every environment.
+- Cloudflare edge addresses are unreachable on some networks; the plugin pins `--protocol http2 --edge-ip-version 4`, which cannot cover every environment.
 - The tunnel's edge node is chosen by Cloudflare; cross-region access may suffer from link quality.
-- The tunnel process is owned by the plugin; stop the plugin before uninstalling or migrating to an independent service.
 - The mobile page is a single file and therefore large on first load — mitigated by content negotiation: 395 KB of source → ~110 KB brotli (~141 KB gzip).
-- Skills listing and body retrieval already exist server-side (`/mini/api/skills`, `/mini/api/skill`), but the **phone-side picker is not wired up yet** and is not exposed in the UI.
+- Skills listing and body retrieval already exist server-side (`/mini/api/skills`, `/mini/api/skill`), but the phone-side picker is not wired up yet.
 
------
+## Roadmap
 
-<a id="dev"></a>
-## Development
+- [ ] Skill picker on the phone (`@` to list, insert the body into the prompt)
+- [ ] Split the mobile page to shrink the first load
+- [ ] Publish to npm
+
+## Contributing
 
 ```sh
+git clone https://github.com/coderxxw/dsh-remote-lite.git
+cd dsh-remote-lite
 npm install
-npm run check     # syntax check (index / server / tunnel / client)
+npm run check   # syntax check
 ```
 
-For local development install through `link:` (see [From a local path](#install)); restart DSH after editing, no reinstall needed.
+During development, install with `link:` into a profile and restart DSH after edits — no reinstall needed. Please make `npm run check` pass before submitting, and state in the PR which transport the change affects (LAN / tunnel / mirror).
 
-Two easy traps:
-
-- `page.html` and `sw.js` are **read into memory at startup** — code edits require a DSH restart; reinstalling does nothing.
-- `dsh plugin add` maintains `dsh.profile.bundles` for you; if you edit it by hand, the entry must match the package name exactly.
-
-`prepublishOnly` runs the syntax check before publishing.
-
------
-
-## Acknowledgments
+## Acknowledgements
 
 Derived from [dsh-mini-remote](https://github.com/xingzhen199186/dsh-mini-remote) by [@xingzhen199186](https://github.com/xingzhen199186); this package restructures it around two transports and zero-command-line deployment.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © [coderxxw](https://github.com/coderxxw)
