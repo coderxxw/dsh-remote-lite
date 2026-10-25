@@ -47,10 +47,12 @@
     --r: 2px;
     --sh-1: 0 1px 2px rgba(0, 0, 0, .28);
     --sh-2: 0 2px 6px rgba(0, 0, 0, .34);
-    --glass: rgba(18, 26, 37, .72);
+    --glass: rgba(18, 26, 37, .93);
     --tint: rgba(24, 34, 47, .5);    /* 队列那块比面板再深一点的底 */
     --pop: rgba(24, 34, 47, .97);    /* 浮起来的小面板（指令菜单等） */
-    --scrim: rgba(0, 0, 0, .55);     /* 弹出层背后压暗的那层；浅色主题里它得轻得多 */
+    /* 遮罩要够暗：它是把底下的主界面压下去的唯一一层，
+       压不住的话主界面的粗体字会从玻璃底下穿上来、跟面板文字叠在一起（实测 2026-10-25）。 */
+    --scrim: rgba(0, 0, 0, .70);
     --on-act: #10161f;    /* 实心主按钮上的字：金底配白字读不清 */
   }
   /* 浅色主题：色调跟宣传图（docs/promo.png）统一——近白的冰蓝底、深宝蓝的字与状态色、
@@ -78,10 +80,12 @@
     --err: #c0392b;
     --sh-1: 0 1px 2px rgba(28, 60, 110, .07);
     --sh-2: 0 2px 8px rgba(28, 60, 110, .12);
-    --glass: rgba(255, 255, 255, .74);
+    --glass: rgba(255, 255, 255, .93);
     --tint: rgba(59, 111, 196, .07);
     --pop: rgba(255, 255, 255, .98);
-    --scrim: rgba(23, 52, 95, .30);
+    /* 原来 .30，玻璃只有 .74 透明度时主界面的粗体字能穿上来，跟面板文字叠成一团。
+       两者一起加强：面板自己挡住大部分，遮罩再把底下压暗，可读性才立得住。 */
+    --scrim: rgba(23, 52, 95, .45);
     --on-act: #ffffff;    /* 宝蓝底上的字 */
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -122,8 +126,12 @@
   .dot.err { background: var(--err); }
   .status { color: var(--muted); font-size: 13px; flex: 1 1 auto;
             overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* 顶栏的三个按钮（工作区 / 子智能体 / 设置）。36 是设计稿尺寸，但触屏上
+     小于 40px 就经常点不中——尤其单手持机拇指够不到的那一角。改 40。
+     真正的触摸标准是 44（WCAG 2.5.5），顶栏宽度够但视觉上会压标题，
+     40 是可点性与版面的折中；再往下 32 就会开始误触了。 */
   .icon-btn {
-    flex: 0 0 auto; width: 36px; height: 36px; border-radius: var(--r);
+    flex: 0 0 auto; width: 40px; height: 40px; border-radius: var(--r);
     border: 1px solid var(--line); background: var(--panel-2); color: var(--fg);
     font-size: 16px; display: grid; place-items: center; cursor: pointer;
   }
@@ -379,11 +387,16 @@
      点下去换成对勾，1.4 秒后自己变回来——手机上没法悬停，也没有「已复制」的
      系统提示，这个反馈是唯一的，所以必须有。
      三个地方共用：单帧模式的整篇、聊天模式的气泡、代码块。 */
+  /* 复制按钮：贴在代码块/表格右上角，视觉上做大就压住内容了，所以保持 28px
+     **但热区用 ::after 扩到 44px**——触屏上手指一盖就点偏的是它，而且代码块
+     里的按钮是手机上最常点的一个小东西（"把这段发给电脑"的常见动作）。 */
   .copy {
     flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
     width: 28px; height: 28px; padding: 0; border-radius: var(--r); cursor: pointer;
     border: 1px solid var(--line); background: var(--panel-2); color: var(--muted);
+    position: relative;
   }
+  .copy::after { content: ''; position: absolute; inset: -8px; }
   .copy svg {
     width: 15px; height: 15px; fill: none; stroke: currentColor;
     stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
@@ -635,12 +648,13 @@
   }
 
   /* ---------- 底栏 ---------- */
+  /* 输入栏同理：实底。它是常驻的，贴着聊天内容上沿，
+     玻璃底一旦穿透，上面那段回答的字会一直糊在输入框边上。 */
   footer {
     flex: 0 0 auto; display: flex; align-items: flex-end; gap: 8px;
     padding: 10px 12px calc(env(safe-area-inset-bottom) + 10px);
-    background: var(--glass); border-top: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(14px) saturate(1.1);
-    backdrop-filter: blur(14px) saturate(1.1);
+    background: var(--panel); border-top: 1px solid var(--line);
+    box-shadow: 0 -1px 0 var(--hair);
   }
   #input {
     flex: 1 1 auto; resize: none; min-height: 42px; max-height: 140px;
@@ -702,9 +716,7 @@
   /* 附件小条：排在输入框上面，让你发之前看得见自己带了什么。 */
   .attach-bar {
     flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 6px;
-    padding: 8px 12px 0; background: var(--glass); border-top: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(14px) saturate(1.1);
-    backdrop-filter: blur(14px) saturate(1.1);
+    padding: 8px 12px 0; background: var(--panel); border-top: 1px solid var(--line);
   }
   .attach-bar[hidden] { display: none; }
   .chip {
@@ -728,9 +740,7 @@
   .cmd-menu {
     flex: 0 0 auto; max-height: 42vh; overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    padding: 6px 8px; background: var(--glass); border-top: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(14px) saturate(1.1);
-    backdrop-filter: blur(14px) saturate(1.1);
+    padding: 6px 8px; background: var(--panel); border-top: 1px solid var(--line);
   }
   .cmd-menu[hidden] { display: none; }
   /* 面板里的指令列表（#opsCmds）和这只菜单**长得一样、也共用这份规则**：
@@ -772,11 +782,11 @@
   .nav-panel {
     position: absolute; top: 0; bottom: 0; left: 0; width: min(86vw, 350px);
     display: flex; flex-direction: column;
-    background: var(--glass); border-right: 1px solid var(--line);
+    /* 实底：抽屉盖住的就是聊天内容，玻璃底会把它从底下穿上来跟标题叠在一起。
+       见 .sheet 那段注释——同样的问题（backdrop-filter 合成不可靠）。 */
+    background: var(--panel); border-right: 1px solid var(--line);
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
-    -webkit-backdrop-filter: blur(14px) saturate(1.1);
-    backdrop-filter: blur(14px) saturate(1.1);
     /* 原来抽出来时有一条 0.18s 的滑入（`navIn`），2026-09-27 删掉：
        状态变化是瞬时的，抽屉不该表演怎么出现。 */
   }
@@ -1040,13 +1050,17 @@
     display: none; align-items: flex-end; z-index: 50;
   }
   #settings.open { display: flex; }
+  /* 面板底色用**实底**，不走毛玻璃。
+     原来是 `background: var(--glass)` + `backdrop-filter: blur(14px)`，看着轻，
+     但 2026-10-25 做布局审计时实测：把 --glass 提到 .93、遮罩提到 .45 之后，
+     **截图里主界面的粗体字照样穿上来**和面板文字叠在一起——
+     computed style 明明是对的，是合成器的 backdrop-filter 渲染不完整。
+     工具面板要的是可读，不是质感：换实底之后任何浏览器都不会再穿透。 */
   .sheet {
     width: 100%; max-height: 86vh; overflow-y: auto;
-    background: var(--glass); border-radius: var(--r) var(--r) 0 0;
+    background: var(--panel); border-radius: var(--r) var(--r) 0 0;
     padding: 18px 16px calc(env(safe-area-inset-bottom) + 18px);
     border-top: 1px solid var(--line);
-    -webkit-backdrop-filter: blur(14px) saturate(1.1);
-    backdrop-filter: blur(14px) saturate(1.1);
   }
   .sheet h2 { margin: 0 0 14px; font-size: 16px; }
 
@@ -1369,9 +1383,10 @@
     border: 1px solid var(--line); background: var(--panel-2); color: inherit; font-family: inherit; }
   /* 这一屏唯一的主按钮，暖金。 */
   #askCard .qfoot button#askNext { background: var(--act); border-color: var(--act); color: var(--on-act); font-weight: 600; }
-  /* 没有毛玻璃的浏览器：退回实色面板。别让界面变成一片糊住的半透明。 */
+  /* 没有毛玻璃的浏览器：顶栏退回实色。其余面板（footer / 附件条 / 指令菜单 /
+     导航抽屉 / 设置抽屉）本来就已是实底，见 .sheet 那段注释。 */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    header, footer, .attach-bar, .cmd-menu, .nav-panel, .sheet { background: var(--panel); }
+    header { background: var(--panel); }
   }
   /* 细线图标：和回形针、复制按钮那套同一副笔法（1.5px 描边、圆头圆角）。 */
   .icon-btn svg {
@@ -1644,8 +1659,6 @@
   header { box-shadow: var(--lift); }
   .brand { letter-spacing: .02em; }
   .status { color: var(--fg-2); font-size: 12.5px; }
-  footer { box-shadow: 0 -1px 0 var(--hair); }
-
   /* ---- ④ 显示区与滚动 ---- */
   main {
     padding: 18px 16px 10px;
