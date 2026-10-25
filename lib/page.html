@@ -2860,6 +2860,9 @@
     // 已经在跑就别重来。状态广播来得很密，每次重置的话秒数会永远卡在 0。
     if (work.startedAt) return;
     work.startedAt = Date.now();
+    // 新一轮起手先把默认那句放回气泡：上一轮的台词到点会被收掉，不收回来这块就是空的，
+    // 光剩一根进度条，人不知道它在说「正在跑」还是「出了什么事」。
+    paintBubble('正在执行…');
     tickElapsed();
     work.tickTimer = setInterval(tickElapsed, 1000);
   }
