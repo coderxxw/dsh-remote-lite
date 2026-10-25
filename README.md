@@ -51,6 +51,7 @@
 - **会话导航**：工作区 → 会话树，可新建会话、新建工作区、浏览目录挑位置；插件不在场时直接从会话日志补历史。
 - **锁屏推送**：Bark / ntfy / Telegram 三种外部通道，另有基于 service worker 的系统通知（要求 HTTPS）。
 - **桌面视图**：内置反代，需要改插件自己的设置时可以把电脑端 GUI 整个搬到手机上看。
+- **清理会话**：长按左侧导航里的会话行即可归档这个对话，长按工作区标题可把整个文件夹下的对话一次归档，或直接删除该工作区。
 - **可验证的运行态**：`/mini/api/version` 返回构建指纹，能确认「现在应答我的是不是刚改的那份代码」。
 
 ## 环境要求
@@ -132,6 +133,7 @@ dsh web
 | 审批与答题 | 桌面端触发时自动弹卡片 |
 | 子智能体 | 侧栏面板，可查看、追问、单独停止 |
 | 切模型 / 权限 | 顶部状态条与设置抽屉 |
+| 归档对话 / 删工作区 | **长按**左侧导航里的会话行或工作区标题 |
 
 ## 配置
 
@@ -246,6 +248,7 @@ flowchart LR
 | 交互 | `POST /mini/api/approval`、`/answer`、`/subagent/ask`、`/set-model`、`/permissions` |
 | 导航 | `GET /mini/api/workspaces`、`/browse`、`/browse/roots`；`POST /mini/api/bind`、`/browse/mkdir` |
 | 其它 | `GET /mini/api/plugins`、`/models`、`/commands`、`/mirror` |
+| 清理 | `POST /mini/api/session/archive`、`/workspace/archive`、`/workspace/delete` |
 
 挂在宿主 Web 服务（默认 `:10001`）、供设置页调用：`/mini-remote/pairing`、`/mini-remote/tunnel`、`/mini-remote/tunnel/zones`、`/mini-remote/tunnel/named`、`/mini-remote/token`。
 

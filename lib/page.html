@@ -801,6 +801,10 @@
     font: inherit; font-size: 14px; text-align: left; cursor: pointer;
   }
   .sess:active { background: var(--panel-2); }
+  /* 长按是隐藏动作，必须给「我按住了」的反馈；同时把 iOS 的「拷贝/查询」菜单和
+     文字选中关掉——不然按住半秒先弹出一堆系统气泡，比没做还糟。 */
+  .sess, .ws-head { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+  .sess.holding, .ws-head.holding { background: var(--panel-2); }
   /* "当前会话"用左边一条 2px 冰蓝线，不用投影：层次靠细线，不靠阴影。 */
   .sess.cur { background: var(--panel-2); border-left: 2px solid var(--ice); }
   .sess .s-title { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1270,6 +1274,38 @@
     transition: opacity .2s, transform .2s; z-index: 200; max-width: 86vw; text-align: center;
   }
   #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ——— 长按菜单（归档 / 删除） ———
+     贴着底边弹出，和设置抽屉同一个位置习惯（拇指够得着），但**不是抽屉**：
+     它问的是一个不可逆的问题，所以只留「动作 + 取消」，不摆任何其它入口。 */
+  .menu-mask {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, .42);
+    z-index: 150; display: none;
+  }
+  .menu-mask.open { display: block; }
+  .menu-card {
+    position: fixed; left: 12px; right: 12px;
+    bottom: calc(env(safe-area-inset-bottom) + 12px);
+    z-index: 151; display: none;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 14px;
+  }
+  .menu-card.open { display: block; }
+  .menu-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .menu-text {
+    font-size: 12.5px; line-height: 1.65; color: var(--muted);
+    margin-bottom: 12px; overflow-wrap: anywhere;
+  }
+  .menu-act {
+    display: block; width: 100%; text-align: left; font: inherit; font-size: 14px;
+    padding: 12px; margin-bottom: 8px; cursor: pointer;
+    background: var(--panel-2); color: var(--fg);
+    border: 1px solid var(--line); border-radius: var(--r);
+  }
+  /* 不可逆的那一颗用错误色。不是装饰：它和上面几颗长得不一样，按下去之前会多看一眼。 */
+  .menu-act.danger { color: var(--err); border-color: var(--err); }
+  .menu-act:disabled { opacity: .5; }
+  .menu-cancel { text-align: center; background: none; margin-bottom: 0; }
 
   /* ——— 回答电脑提问的卡片 ———
      整屏遮住聊天区：手机上一次只专心答一题，答完自动消失。
@@ -2105,6 +2141,17 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- 长按菜单：归档会话 / 删除工作区。
+     不放常驻「⋯」按钮是有意的——导航每行本来只有「标题 + 日期」，再加一颗按钮会把
+     可点区域挤碎；而删除是低频动作，为它常驻入口的代价，是让高频的「点开会话」更容易误触。 -->
+<div class="menu-mask" id="menuMask"></div>
+<div class="menu-card" id="menuCard" role="dialog" aria-modal="true" aria-labelledby="menuTitle">
+  <div class="menu-title" id="menuTitle"></div>
+  <div class="menu-text" id="menuText"></div>
+  <div id="menuActs"></div>
+  <button class="menu-act menu-cancel" id="menuCancel" type="button">取消</button>
+</div>
 
 <script>
 (function () {
@@ -4784,6 +4831,9 @@
   $('nav').addEventListener('click', function (e) { if (e.target === $('nav')) closeNav(); });
 
   $('navBody').addEventListener('click', function (e) {
+    // 长按成立的那一次，手指抬起时浏览器还会补一个 click。不在这里吃掉它，
+    // 就会先弹出归档菜单、再顺手把那个会话切过去——两件事一起发生。
+    if (suppressClick) { suppressClick = false; return; }
     var t = e.target;
     var sess = t && t.closest ? t.closest('.sess') : null;
     if (sess) {
@@ -4821,6 +4871,217 @@
     if (!head) return;
     toggleWorkspace(head.parentNode.getAttribute('data-ws'));
   });
+
+  // ---------------- 长按：归档对话 / 删除文件夹 ----------------
+  //
+  // 为什么是长按、不是常驻的「⋯」：导航一行本来只有「标题 + 日期」，再塞一颗按钮会把
+  // 可点区域挤碎；而删除是低频动作，为它常驻一个入口，代价是让高频的「点开会话」
+  // 更容易误触。长按是移动端对「低频 + 危险 + 不该在第一眼」这类动作的常规解法。
+  //
+  // 桌面上没有长按，所以右键（contextmenu）走同一条路——顺带让调试时也能验。
+
+  /** 长按成立后要吃掉紧随其后的那次 click（见上面那个 click 处理器开头）。 */
+  var suppressClick = false;
+
+  /** 菜单里正等着一个动作跑完：期间再点别的就先不理，避免连点两次删两遍。 */
+  var menuBusy = false;
+
+  function closeMenu() {
+    $('menuMask').classList.remove('open');
+    $('menuCard').classList.remove('open');
+    $('menuActs').innerHTML = '';
+  }
+
+  /**
+   * 弹一张动作卡。
+   *
+   * 只有「动作 + 取消」——它问的是不可逆的问题，不该顺手给别的出口。
+   * 每个动作跑完自己关卡片：**先关再等**，这样用户马上看到「按到了」，
+   * 而不是对着一个没反应的卡片怀疑是不是没点上。
+   */
+  function openMenu(cfg) {
+    $('menuTitle').textContent = cfg.title || '';
+    $('menuText').textContent = cfg.text || '';
+    var box = $('menuActs');
+    box.innerHTML = '';
+    (cfg.actions || []).forEach(function (action) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'menu-act' + (action.danger ? ' danger' : '');
+      btn.textContent = action.label;
+      btn.addEventListener('click', function () {
+        if (menuBusy) return;
+        menuBusy = true;
+        closeMenu();
+        toast('处理中…');
+        Promise.resolve()
+          .then(action.run)
+          .catch(function (err) {
+            toast(err && err.message ? err.message : '操作失败');
+          })
+          .then(function () { menuBusy = false; });
+      });
+      box.appendChild(btn);
+    });
+    $('menuMask').classList.add('open');
+    $('menuCard').classList.add('open');
+  }
+
+  /** 归档完把本地这份列表作废，重拉一次——服务端那份已经变了。 */
+  function refreshNavAfterRemoval() {
+    navList = null;
+    navSessions = {};
+    loadWorkspaces(true);
+  }
+
+  function askArchiveSession(row) {
+    var id = row.getAttribute('data-sess');
+    if (!id) return;
+    var titleEl = row.querySelector('.s-title');
+    var title = titleEl && titleEl.textContent ? titleEl.textContent : '这个对话';
+    openMenu({
+      title: '归档这个对话？',
+      text: '「' + title + '」会从这个工作区的列表里移走，它正在跑的任务会先被停掉。'
+        + '归档不是删除 —— 之后可以在电脑端侧栏的「已归档」里恢复。',
+      actions: [{
+        label: '归档',
+        run: function () {
+          return api('/mini/api/session/archive', {
+            method: 'POST',
+            body: JSON.stringify({ sessionId: id }),
+          }).then(function () {
+            refreshNavAfterRemoval();
+            toast('已归档');
+          });
+        },
+      }],
+    });
+  }
+
+  function askWorkspaceActions(el) {
+    var wsId = el.getAttribute('data-ws');
+    if (!wsId) return;
+    var titleEl = el.querySelector('.ws-title');
+    var title = titleEl && titleEl.textContent ? titleEl.textContent : '这个工作区';
+    var countEl = el.querySelector('.ws-count');
+    var count = countEl && countEl.textContent ? countEl.textContent : '';
+    var numeric = /^[0-9]+$/.test(count) ? Number(count) : 0;
+    var hasSessions = Boolean(navSessions[wsId] && navSessions[wsId].total) || numeric > 0;
+    openMenu({
+      title: title,
+      text: hasSessions
+        ? (numeric ? '这个工作区下有 ' + numeric + ' 个会话。' : '这个工作区下有会话。')
+          + '归档会把它们全部移出列表、并先停掉正在跑的任务（之后可在电脑端「已归档」里恢复）；'
+          + '删除工作区则是把工作区注册本身删掉，不可恢复 —— 磁盘上的会话日志不会被删。'
+        : '这个工作区下还没有会话。删除会把工作区注册本身删掉，不可恢复 —— 磁盘上的文件不受影响。',
+      actions: hasSessions
+        ? [
+          {
+            label: '归档这里的全部会话',
+            run: function () {
+              return api('/mini/api/workspace/archive', {
+                method: 'POST',
+                body: JSON.stringify({ workspaceId: wsId }),
+              }).then(function (r) {
+                refreshNavAfterRemoval();
+                var n = (r && r.archived) ? r.archived.length : 0;
+                toast(n ? ('已归档 ' + n + ' 个会话') : '这里没有可归档的会话');
+              });
+            },
+          },
+          {
+            label: '删除这个工作区',
+            danger: true,
+            run: function () {
+              return api('/mini/api/workspace/delete', {
+                method: 'POST',
+                body: JSON.stringify({ workspaceId: wsId, archiveSessions: true }),
+              }).then(function () {
+                refreshNavAfterRemoval();
+                toast('工作区已删除');
+              });
+            },
+          },
+        ]
+        : [{
+          label: '删除这个工作区',
+          danger: true,
+          run: function () {
+            return api('/mini/api/workspace/delete', {
+              method: 'POST',
+              body: JSON.stringify({ workspaceId: wsId, archiveSessions: true }),
+            }).then(function () {
+              refreshNavAfterRemoval();
+              toast('工作区已删除');
+            });
+          },
+        }],
+    });
+  }
+
+  /**
+   * 长按的主判定：按住的是会话行还是工作区标题。
+   *
+   * 目录浏览那一屏整块跳过——那一屏的 `.sess` 是「进入这个目录」，不是会话，
+   * 在这儿弹出「归档这个对话」会指向一个不存在的对象。
+   */
+  function pressRow(row) {
+    if (!row || navView === 'browse') return;
+    var sess = row.closest('.sess');
+    if (sess) { askArchiveSession(sess); return; }
+    var ws = row.closest('.ws');
+    if (ws) askWorkspaceActions(ws);
+  }
+
+  (function wireLongPress() {
+    var body = $('navBody');
+    var timer = null;
+    var target = null;
+
+    var clearHold = function () {
+      if (timer) { clearTimeout(timer); timer = null; }
+      if (target) { target.classList.remove('holding'); target = null; }
+    };
+
+    var startHold = function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var row = t.closest('.sess') || t.closest('.ws-head');
+      if (!row) return;
+      target = row;
+      row.classList.add('holding');
+      timer = setTimeout(function () {
+        timer = null;
+        var hit = target;
+        clearHold();
+        // 长按成立：手指抬起时浏览器还会补一次 click，那一次要让路。
+        suppressClick = true;
+        // click 不一定来（比如长按后手指直接划走），给一个很短的窗口自己复位，
+        // 否则下一次正常的点击会被白白吃掉一次。
+        setTimeout(function () { suppressClick = false; }, 700);
+        pressRow(hit);
+      }, 550);
+    };
+
+    body.addEventListener('touchstart', startHold, { passive: true });
+    body.addEventListener('touchmove', clearHold, { passive: true });
+    body.addEventListener('touchend', clearHold);
+    body.addEventListener('touchcancel', clearHold);
+    // 桌面端：右键 = 长按。preventDefault 挡掉系统菜单，否则两个菜单会叠在一起。
+    body.addEventListener('contextmenu', function (e) {
+      var t = e.target;
+      if (!t || !t.closest) return;
+      var row = t.closest('.sess') || t.closest('.ws-head');
+      if (!row) return;
+      e.preventDefault();
+      clearHold();
+      suppressClick = true;
+      setTimeout(function () { suppressClick = false; }, 700);
+      pressRow(row);
+    });
+    $('menuMask').addEventListener('click', closeMenu);
+    $('menuCancel').addEventListener('click', closeMenu);
+  })();
 
   // ---------------- SSE ----------------
   /** 从轨迹中取当前轮号：正在跑的那一组的轮号。没有就返回 null。 */
@@ -7220,7 +7481,7 @@
     setInterval(function () { if (!document.hidden) load() }, 15000)
     document.addEventListener('visibilitychange', function () { if (!document.hidden) load() })
     // 上面那个轮询管"显示的东西新不新"，这个管"**手里这份页面**是不是过期了"——
-    // 插件重启过就要刷一次，不然页面会拿着旧的切帧规则去切新的立绘（见 watchBuild 注释）。
+    // 插件重启过就要刷一次，不然页面拿着的是上一份代码（见 watchBuild 注释）。
     // 30 秒的间隔够用：它防的是"重启之后一直拿着旧页面"，不是实时性。
     setInterval(watchBuild, 30000)
     // 手机把页面挂到后台时定时器会被压住，切回来那一刻补一次检查。
