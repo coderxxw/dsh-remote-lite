@@ -364,9 +364,15 @@
     background: none; border: none; padding: 0; font-size: 12.5px; line-height: 1.6;
     white-space: pre;
   }
-  /* 表格窄屏放不下就横向滚，别把页面撑破 */
-  .md table { border-collapse: collapse; margin: 0 0 .7em; font-size: .92em; display: block; overflow-x: auto; }
-  .md th, .md td { border: 1px solid var(--line); padding: 5px 9px; text-align: left; white-space: nowrap; }
+  /* 表格窄屏放不下就横向滚，别把页面撑破。
+     **只在这里定义一次**：早先这段被拆成两处（这里一套、正文样式区又一套），
+     后者靠层叠把 width/margin/padding 覆盖回去，于是「实际生效的样式」是两个半份拼的——
+     改任何一处都不会按预期生效。合并后的值就是原先叠出来的最终结果。 */
+  .md table {
+    border-collapse: collapse; width: 100%; margin: .7em 0; font-size: .94em;
+    display: block; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  }
+  .md th, .md td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; white-space: nowrap; }
   .md th { background: var(--panel-2); font-weight: 600; }
 
   /* 复制按钮：方形的图标按钮，图标是两个重叠的方框（就是常见那个复制图标）。
@@ -1672,9 +1678,6 @@
     border-left: 2px solid var(--line); color: var(--fg-2);
   }
   .md hr { border: 0; border-top: 1px solid var(--line); margin: 1.1em 0; }
-  .md table { border-collapse: collapse; width: 100%; margin: .7em 0; font-size: .94em; }
-  .md th, .md td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; }
-  .md th { background: var(--panel-2); font-weight: 600; }
 
   /* ---- ⑥ 空态：一行字也要有版式 ---- */
   .placeholder {
@@ -5008,8 +5011,11 @@
   function askDeleteForever(id, title) {
     openMenu({
       title: '永久删除「' + title + '」？',
+      // 这里是**纯文本**（openMenu 用 textContent 写入，不跑 markdown），
+      // 所以别写 `**不能恢复**` 那种强调——真机上星号会原样露出来（已踩过一次）。
+      // 要强调就靠句式：把「不能恢复」放在句尾，前后用逗号断开。
       text: '这会把这个会话的记录从磁盘上删掉：消息、工具调用记录、执行轨迹全部消失，'
-        + '**不能恢复**。要留后路请用「归档」。',
+        + '不能恢复。要留后路请用「归档」。',
       actions: [{
         label: '永久删除，不能恢复',
         danger: true,
