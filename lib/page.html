@@ -796,6 +796,45 @@
     font-weight: 600;
   }
   .nav-head > span:first-child { flex: 1 1 auto; }
+  /* 页眉那个「选择」：文字按钮，和右边两颗图标按钮同高但窄一些。 */
+  .nav-text-btn {
+    flex: 0 0 auto; min-height: 32px; padding: 0 10px; font: inherit; font-size: 13px;
+    border: 1px solid var(--line); border-radius: var(--r);
+    background: var(--panel-2); color: var(--ice); cursor: pointer;
+  }
+  /* ---- 多选删除（2026-10-25）---- */
+  /* 选中框占的是 .sess 本来那 30px 缩进里的位置（负 margin），
+     于是勾上/取消不会让标题左右跳。 */
+  .sess .s-pick {
+    flex: 0 0 auto; position: relative; display: inline-block;
+    width: 16px; height: 16px; margin-left: -20px; margin-right: 4px;
+    border: 1.5px solid var(--line); border-radius: 3px;
+  }
+  .sess .s-pick.on { background: var(--ice); border-color: var(--ice); }
+  .sess .s-pick.on::after {
+    content: ''; position: absolute; left: 4px; top: 1px;
+    width: 5px; height: 9px; border: solid #fff;
+    border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  .sess.picked { background: var(--tint); }
+  /* 操作条贴在面板底边——拇指够得到，也离内容最远（不会误点）。
+     实底 + 上边线，和 .sheet / footer 同一套（毛玻璃会透，见 .sheet 那条注释）。 */
+  .select-bar {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px calc(env(safe-area-inset-bottom) + 10px);
+    border-top: 1px solid var(--line); background: var(--panel);
+  }
+  .select-bar[hidden] { display: none; }
+  .select-count { flex: 1 1 auto; font-size: 13px; color: var(--fg-2); }
+  .select-act {
+    flex: 0 0 auto; min-height: 36px; padding: 0 14px; font: inherit; font-size: 13.5px;
+    border: 1px solid var(--line); border-radius: var(--r);
+    background: var(--panel-2); color: var(--fg); cursor: pointer;
+  }
+  .select-act:disabled { opacity: .5; }
+  /* 删除是这里唯一的不可逆动作，用错误色和「取消」区分开。 */
+  #btnSelectDelete { background: var(--err); border-color: var(--err); color: #fff; }
+  #btnSelectDelete:disabled { opacity: .5; }
   .nav-body { flex: 1 1 auto; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   .nav-body .placeholder { padding: 24px 16px; font-size: 14px; }
 
@@ -1869,10 +1908,18 @@
   <aside class="nav-panel">
     <div class="nav-head">
       <span>工作区与会话</span>
+      <!-- 多选入口常驻在页眉：低频操作，但「长按才知道有」太隐蔽了。 -->
+      <button class="nav-text-btn" id="btnNavSelect" type="button">选择</button>
       <button class="icon-btn" id="btnNavRefresh" aria-label="刷新"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 5v6h-6"/></svg></button>
       <button class="icon-btn" id="btnNavClose" aria-label="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="nav-body" id="navBody"></div>
+    <!-- 多选操作条：只在多选模式出现，贴在面板底边（拇指够得到）。 -->
+    <div class="select-bar" id="selectBar" hidden>
+      <span class="select-count" id="selectCount">已选 0 个</span>
+      <button class="select-act" id="btnSelectDelete" type="button">删除</button>
+      <button class="select-act" id="btnSelectCancel" type="button">取消</button>
+    </div>
   </aside>
 </div>
 
@@ -4377,6 +4424,11 @@
   // workspaceId -> true（点开过更多）。收起工作区时不清——再展开还是全量，
   // 用户既然点过一次就是想看完；要复位走刷新（见 loadWorkspaces(true) 那条路）。
   var navShowAll = {};
+  // 2026-10-25 多选删除（用户要求）：手机上挑几个会话一起删。
+  // `navSelected` 是 **Set<sessionId>**，不按工作区分组——用户说的是「多个对话窗口」，
+  // 跨文件夹挑是常态；不分组反而少一处「切换文件夹要不要清空」的逻辑。
+  var navSelectMode = false;
+  var navSelected = new Set();
 
   function openNav() {
     $('nav').classList.add('open');
@@ -4475,6 +4527,7 @@
     if (!list.length) {
       $('navBody').innerHTML = cta + '<div class="placeholder">电脑上还没有可以切换的会话。<br>'
         + '在电脑上开一个，这里就会出现了。</div>';
+      paintSelectBar();
       return;
     }
     $('navBody').innerHTML = cta + list.map(function (ws) {
@@ -4491,6 +4544,89 @@
         + '<div class="ws-body">' + (open ? sessionsHtml(ws.id) : '') + '</div>'
         + '</div>';
     }).join('');
+    paintSelectBar();
+  }
+
+  // ---------------- 多选删除（2026-10-25）----------------
+  //
+  // 为什么单独有一套「选择」态，而不是挂在长按菜单里：整目录的批量归档/删除
+  // 早就有了（长按工作区标题），真正缺的是**部分选择**——在一个或几个文件夹里
+  // 挑几条删。所以入口常驻在页眉，选中集合不按文件夹分组。
+
+  /** 画底部那条操作条 + 同步页眉那个按钮的字。 */
+  function paintSelectBar() {
+    var btn = $('btnNavSelect');
+    var bar = $('selectBar');
+    var count = $('selectCount');
+    var del = $('btnSelectDelete');
+    if (btn) btn.textContent = navSelectMode ? '完成' : '选择';
+    if (bar) bar.hidden = !navSelectMode;
+    if (count) count.textContent = '已选 ' + navSelected.size + ' 个';
+    // 一个都没选就别让「删除」可点——点了只会弹一个没有对象的确认框。
+    if (del) del.disabled = navSelected.size === 0;
+  }
+
+  /** 进出多选模式。退出即清空选中：下次进来还留着旧选择是最容易误删的一种。 */
+  function toggleSelectMode(on) {
+    navSelectMode = typeof on === 'boolean' ? on : !navSelectMode;
+    if (!navSelectMode) navSelected.clear();
+    renderNav();
+  }
+
+  /**
+   * 勾上/取消一行。
+   *
+   * **只改这一行和计数，不整屏重画**：整屏 renderNav 会把滚动位置弹回顶部，
+   * 在一个 21 条的工作区里勾第 15 条，每勾一次就得重新划下去，根本没法用。
+   */
+  function togglePicked(id) {
+    if (!id) return;
+    if (navSelected.has(id)) navSelected.delete(id);
+    else navSelected.add(id);
+    var row = document.querySelector('.sess[data-sess="' + id + '"]');
+    if (row) {
+      var picked = navSelected.has(id);
+      row.classList.toggle('picked', picked);
+      var box = row.querySelector('.s-pick');
+      if (box) box.classList.toggle('on', picked);
+    }
+    paintSelectBar();
+  }
+
+  /** 批量删除的确认层。删完如实汇报「成了几个、剩几个」，见 askDeleteSelected 的 toast。 */
+  function askDeleteSelected() {
+    if (!navSelected.size) return;
+    var ids = Array.from(navSelected);
+    openMenu({
+      title: '永久删除已选的 ' + ids.length + ' 个对话？',
+      text: '这些会话的记录会从磁盘上删掉，不可恢复；正在跑的会被先停掉。'
+        + '要留后路请改用「归档」。',
+      actions: [{
+        label: '永久删除 ' + ids.length + ' 个',
+        danger: true,
+        run: function () {
+          return api('/mini/api/sessions/delete', {
+            method: 'POST',
+            body: JSON.stringify({ ids: ids, confirm: 'delete' }),
+          }).then(function (r) {
+            // 部分失败是**正常结果**不是错误：批量接口回 200 + failed 清单。
+            // 所以这里不用 ok 判断——「删掉 8 个、2 个被占用」也要如实说出来。
+            var done = (r && r.deleted ? r.deleted.length : 0);
+            var bad = (r && r.failed ? r.failed.length : 0);
+            navSelected.clear();
+            toggleSelectMode(false);
+            refreshNavAfterRemoval();
+            if (!done) {
+              toast((r && r.failed && r.failed[0] && r.failed[0].error) || '一个都没删成');
+            } else if (bad) {
+              toast('已删 ' + done + ' 个，' + bad + ' 个没删成（多半是文件还被占用，稍后再试）');
+            } else {
+              toast('已永久删除 ' + done + ' 个');
+            }
+          });
+        },
+      }],
+    });
   }
 
   function sessionsHtml(wsId) {
@@ -4524,10 +4660,15 @@
     var shown = showAll ? got.sessions : got.sessions.slice(0, VISIBLE);
     var cur = state.boundSessionId;
     html += shown.map(function (s) {
+      // 多选模式下整行就是「勾上/取消」的热区（手机上复选框太小），
+      // 真正勾的状态用左边那个方框**画出来**，但点击范围仍然是整行。
+      var picked = navSelectMode && navSelected.has(s.id);
       // 没有标题就用日期——原来退到取 id 的前 8 位当名字，而本机真有一个会话的 id
       // 以「session-」开头，于是整列都显示成一样的「session-」，等于没有名字。
-      return '<button class="sess' + (s.id === cur ? ' cur' : '') + '" type="button"'
+      return '<button class="sess' + (s.id === cur ? ' cur' : '') + (picked ? ' picked' : '')
+        + '" type="button"'
         + ' data-sess="' + escapeHtml(s.id) + '">'
+        + (navSelectMode ? '<span class="s-pick' + (picked ? ' on' : '') + '" aria-hidden="true"></span>' : '')
         + (s.running ? '<span class="s-dot"></span>' : '')
         + '<span class="s-title">' + escapeHtml(s.title || '未命名会话') + '</span>'
         + '<span class="s-meta">' + dayLabel(s.lastActive || s.createdAt) + '</span>'
@@ -4909,6 +5050,15 @@
     // 就会先弹出归档菜单、再顺手把那个会话切过去——两件事一起发生。
     if (suppressClick) { suppressClick = false; return; }
     var t = e.target;
+    if (navSelectMode) {
+      var picked = t && t.closest ? t.closest('.sess') : null;
+      // 多选模式下整行就是「勾上/取消」的热区，不能顺手把会话切过去。
+      if (picked) { togglePicked(picked.getAttribute('data-sess')); return; }
+      // 「新建会话 / 新建工作区」在多选时一并收起：这一屏此刻的语义是挑东西，
+      // 误点是真会建出一个会话的。展开/收起工作区**保留**——跨文件夹挑是常态。
+      if (t && t.closest && (t.closest('.ws-new') || t.closest('[data-new-ws]'))) return;
+      // 点别处（工作区标题等）照旧走下面那套。
+    }
     var sess = t && t.closest ? t.closest('.sess') : null;
     if (sess) {
       // 目录浏览那一屏里的 .sess 是「进这个目录」，不是「切到这个会话」。
@@ -5165,6 +5315,9 @@
     };
 
     var startHold = function (e) {
+      // 多选模式下不启动长按：否则长按一行会同时「勾上它」和「弹出归档菜单」，
+      // 两件事一起发生，用户不知道自己按出了什么。
+      if (navSelectMode) return;
       var t = e.target;
       if (!t || !t.closest) return;
       var row = t.closest('.sess') || t.closest('.ws-head');
@@ -5201,6 +5354,12 @@
       pressRow(row);
     });
     $('menuMask').addEventListener('click', closeMenu);
+
+    // 多选入口/操作条。三个按钮都在面板上常驻（操作条靠 hidden 收起），
+    // 所以在这里一次性绑好，不用每次 renderNav 重绑。
+    $('btnNavSelect').addEventListener('click', function () { toggleSelectMode(); });
+    $('btnSelectCancel').addEventListener('click', function () { toggleSelectMode(false); });
+    $('btnSelectDelete').addEventListener('click', askDeleteSelected);
     $('menuCancel').addEventListener('click', closeMenu);
   })();
 
