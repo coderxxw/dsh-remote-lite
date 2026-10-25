@@ -9,9 +9,9 @@ English | [中文](README.md)
 
 ## Overview
 
-`dsh-remote-lite` provides a mobile remote-control surface for DSH. The plugin starts an HTTP/SSE server on the host (default `:3090`); a phone browser pointed at that server can browse workspaces and sessions, send instructions, switch agent modes and models, and approve tool calls. The plugin subscribes to DSH's `session/event` and `agent/status` events, replays execution progress into a mobile-shaped structure, and pushes it over SSE; user instructions travel back to the host over a reverse channel.
+`dsh-remote-lite` moves DSH sessions onto a phone. The plugin starts an HTTP/SSE server on the host (default `:3090`); a phone browser pointed at it can browse workspaces and sessions, send instructions, switch agent modes and models, and approve tool calls. The plugin subscribes to DSH's `session/event` and `agent/status` events, replays execution progress into a mobile-shaped structure, and pushes it over SSE; user instructions travel back to the host over a reverse channel.
 
-Two transports are available: plaintext HTTP on the local network, and an HTTPS tunnel through Cloudflare. The `cloudflared` binary the tunnel requires is fetched on demand and owned by the plugin — it registers no system service, does not run at boot, and does not modify the hosts file. Given a Cloudflare API Token, the plugin creates the tunnel, writes the ingress rule, and writes the DNS record itself, so neither the command line nor manual dashboard configuration is required.
+Two transports are available: plaintext HTTP on the local network, and an HTTPS tunnel through Cloudflare. The `cloudflared` binary the tunnel requires is fetched on demand and its lifetime owned by the plugin — it registers no system service, does not run at boot, and does not modify the hosts file. Given a Cloudflare API Token, the plugin creates the tunnel, writes the ingress rule, and writes the DNS record itself, so neither the command line nor manual dashboard configuration is required.
 
 ## Contents
 
@@ -26,7 +26,7 @@ Two transports are available: plaintext HTTP on the local network, and an HTTPS 
 <a id="use-this-package"></a>
 ## Use this package
 
-Install `dsh-remote-lite` into a profile and restart DSH. The default composition does not declare this plugin; using it requires installing the package and inserting an active row.
+Install `dsh-remote-lite` into a profile and restart DSH. The default composition does not declare this plugin, so it must be installed explicitly and inserted as an active row.
 
 ```sh
 dsh plugin add dsh-remote-lite
@@ -46,11 +46,17 @@ The DSH Web UI's **Settings → Mobile remote** tab renders the pairing QR code;
 
 Choose this plugin when sessions need to be monitored, instructed, or approved from a phone without staying at the desktop UI. Deployments that only need desktop operation, or have no cross-device requirement, can skip it.
 
+### Version compatibility
+
+Install and startup check the runtime version against the `engines.dsh` range, declared here as `>=0.1.5-rc.2 <1.0.0`. When it does not match, DSH refuses to load the plugin and asks for an exact-version exemption.
+
 ### Configuring remote access
 
-The LAN transport needs no configuration: the plugin binds all available interfaces by default (`bindAddress: "auto"`), so devices on the same Wi-Fi can connect directly.
+The LAN transport needs no configuration: the plugin binds all available interfaces by default (`bindAddress: "auto"`), so devices on the same Wi-Fi connect directly.
 
-The public transport needs a Cloudflare API Token with `Account → Cloudflare Tunnel → Edit`, `Zone → DNS → Edit`, and `Zone → Zone → Read`. Paste it into the settings page and select **读取我的域名**; the plugin lists the zones the token can see. Pick one and save — the plugin then creates the tunnel, writes the ingress rule, writes the DNS record, and starts `cloudflared`. The same page also accepts the run token of a tunnel already created in the Cloudflare dashboard (`eyJ...` form), in which case the DNS record must be configured by the deployer.
+The public transport needs a Cloudflare API Token with `Account → Cloudflare Tunnel → Edit`, `Zone → DNS → Edit`, and `Zone → Zone → Read`. Paste it into the settings page and select **读取我的域名**; the plugin lists the zones the token can see. Pick one and save — the plugin then creates the tunnel, writes the ingress rule, writes the DNS record, and starts `cloudflared`.
+
+The same page also accepts the run token of a tunnel already created in the Cloudflare dashboard (`eyJ...` form). That path skips every management API call, but the DNS record must be configured by the deployer.
 
 The two transports resolve to these address forms:
 
@@ -61,7 +67,7 @@ The two transports resolve to these address forms:
 
 The access token is viewable and editable in the settings page with a 12-character minimum. If unset on first start, the plugin generates a 32-character hex string and persists it.
 
-### Configuration file
+### Configuration
 
 Configuration lives at `$DSH_HOME/dsh-remote-lite/settings.json`, by default `~/.dsh/dsh-remote-lite/settings.json`. Three keys form a working minimum:
 
@@ -77,7 +83,9 @@ Every other field has a default. Field semantics, push channels (Bark / ntfy / T
 
 ### Observable success and failure
 
-A successful start logs `[dsh-remote-lite] 已启动` followed by pairing addresses, and `:3090` enters a listening state. A successful tunnel logs `固定隧道已连上：https://<hostname>` and the page reports connected. Network-layer failures surface as `timeout` or `no recent network activity`; token or tunnel-state problems surface as `Invalid request headers` and `Tunnel not found`. The plugin installs no system service, so the server stops when DSH exits.
+A successful start logs `[dsh-remote-lite] 已启动` followed by pairing addresses, and `:3090` enters a listening state. A successful tunnel logs `固定隧道已连上：https://<hostname>` and the page reports connected.
+
+Network-layer failures surface as `timeout` or `no recent network activity`; token or tunnel-state problems surface as `Invalid request headers` and `Tunnel not found`. The plugin installs no system service, so the server stops when DSH exits.
 
 -----
 
@@ -94,6 +102,8 @@ This section explains how the plugin is wired; observable behavior is covered un
 The plugin registers an HTTP server and several settings routes during `apply`, subscribes to DSH session events, and serves the mobile page as a single-file asset. It imports no runtime values from `@deepseek-ai/*` with one exception: `@deepseek-ai/schemastery`, used solely to declare `Config`. That dependency is supplied by the host (declared in `peerDependencies`, not `dependencies`) so a second copy never appears.
 
 The tunnel process is owned by the plugin. The binary is resolved from the configured path, then system PATH, then the data directory's `bin/`, then downloaded from GitHub directly or through mirrors. Because no system service is registered, the plugin is mutually exclusive with an independently installed `cloudflared` service.
+
+The mobile page is compressed on send according to `Accept-Encoding`, preferring brotli and falling back to gzip. This targets bandwidth-constrained tunnels: the 395 KB source compresses to roughly 109 KB under brotli.
 
 ### Source map
 
@@ -131,6 +141,7 @@ The tunnel process is owned by the plugin. The binary is resolved from the confi
 
 - The LAN transport is plaintext HTTP with no transport encryption; the token travels as a query parameter, so it is unsuitable on untrusted networks.
 - Cloudflare edge addresses are unreachable on some networks. The plugin pins `--protocol http2 --edge-ip-version 4` to work around this, but cannot cover every environment.
+- The tunnel's actual edge node is chosen by Cloudflare; cross-region access may be affected by link quality.
 - The tunnel process is owned by the plugin; stop the plugin before uninstalling or migrating to an independent service.
 
 -----
@@ -150,9 +161,7 @@ cd ~/.dsh/profiles/web
 pnpm add link:D:/path/to/dsh-remote-lite
 ```
 
-Then append `"dsh-remote-lite"` to `dsh.profile.bundles` in that `package.json`. Restart DSH after changing code.
-
-`prepublishOnly` runs the syntax check before an npm publish.
+Then append `"dsh-remote-lite"` to `dsh.profile.bundles` in that `package.json`. Restart DSH after changing code. `prepublishOnly` runs the syntax check before an npm publish.
 
 -----
 
