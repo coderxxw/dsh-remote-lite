@@ -18,9 +18,9 @@
          深色下两个都是暖金 #c9a55c；浅色下 --gold 压深成 #8a6529（白底才读得清），
          --act 换成宣传图的宝蓝 #3b6fc4——用户 2026-09-27 看过对照图后定的：浅色那套
          底色本来就是从宣传图取的，冷底上再压一块饱和暖金，比在深色下更像外来物。
-         需要"显眼一点"的地方一律用鲸鱼娘的冰蓝 --ice，别动这两个。
+         需要"显眼一点"的地方一律用冰蓝 --ice，别动这两个。
        · --ok/--run/--err 是状态点的语义色，占的是 8px 一个小点，不算强调色。
-       · 配色以鲸鱼娘为准心：深海墨蓝打底，她的冰蓝作次级色。
+       · 配色：深海墨蓝打底，冰蓝作次级色。
        · 两套主题：[data-theme="light"]（默认，浅色）和深色，色调跟宣传图
          （docs/promo.png）统一。**颜色令牌两边必须一一对应**——缺一个，就有元素
          在某个主题下"隐身"，而且只在那个主题下才看得出来。守卫在 test/ui.test.mjs。 */
@@ -443,86 +443,18 @@
     animation: caret 1s steps(2, start) infinite;
   }
   @keyframes caret { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
-  /* ---------- 「正在执行」：鲸鱼娘 + 进度条 + 气泡 ----------
+  /* ---------- 「正在执行」：台词气泡 + 进度条 + 秒数 ----------
      单帧模式下它出现在上一条回答的**下方**，不顶掉它，所以要用虚线跟正文分开，
      不然会被当成那条回答的一部分。 */
   .work {
     margin-top: 20px; padding-top: 14px;
     border-top: 1px dashed var(--line);
   }
-  /* 立绘和气泡是**一组**。这里把两件事拆开：
-       立绘站哪儿 → 由**这一行的宽度**决定，跟词条无关；
-       气泡多宽   → 由词条自己的长短决定。
-     行宽取「最长那句」的整组宽度，再把这一行居中，于是立绘永远站在同一个位置。
-     算账：立绘 122 + 间隙 6 + 最长那句的气泡 171 = 299。
-     那个 171 = 10 个全角字 × 14.5px，加左右内边距 24、边框 2。
-     用 max-content 而不是写死 width：将来真加了更长的词条，这行会自己撑开——
-     宁可立绘挪一点，也不能让字顶出屏幕。
-     min() 是窄屏退路：屏幕比 299 还窄时，这行跟着屏幕收，别溢出。
-     **max-width 那一行是把上面那句话真正落实**（2026-09-27 补）：光有
-     `max-content` + `min-width` 只有下限没有上限，而气泡的 `max-width:
-     calc(100% - 128px)` 里的那个 100% 又是拿这一行自己算的——两头都靠对方，
-     谁也没被真正管住。结果是一句长话（尤其我那几句英文思考）把整行撑到屏幕外，
-     手机上得横着划才能看见（用户截图报的就是这个）。钉死在这一行的宽度上才算数。 */
+  /* 立绘拿掉之后，这一行不再为角色预留宽度（原来是「立绘 122 + 间隙 6 + 气泡」算出来的 299），
+     气泡想多宽就多宽，窄屏自然跟着收。 */
   .work-top {
-    display: flex; align-items: flex-start; gap: 6px;
-    width: max-content; min-width: min(299px, 100%); max-width: 100%;
+    max-width: 100%;
     margin: 0 auto;
-  }
-
-  /* 立绘：每个姿势是一张「并排若干帧」的雪碧图（每帧 380×330），靠 background-position
-     在帧与帧之间硬切，手脚就真的在动——不是把一张静图晃一晃。
-     七层叠在一起，换姿势时交叉淡入。
-     帧数写在数据里（POSES[i].frames，缺省 1 = 单帧整图）。雪碧图那两套写法（2 帧 / 6 帧）留着，
-     但本项目现在用的是单帧 AI 立绘，见 lib/art/。 */
-  .work-stage {
-    position: relative; flex: 0 0 auto;
-    width: 122px; height: 106px;
-    /* 这里原来还叠着一层 2.4s 的上下浮动（`workBob`），2026-09-27 删掉：
-       她的翻帧本身就是"活着"的证据，再叠一层漂浮就变成界面在表演了。 */
-  }
-  .pose {
-    position: absolute; inset: 0;
-    background-repeat: no-repeat;
-    background-position: 0 0;
-    background-size: 244px 106px;   /* 两帧并排的显示宽度 = 122 × 2 */
-    opacity: 0; transition: opacity .35s ease;
-    animation-name: poseFlip;
-    animation-timing-function: step-end;
-    animation-iteration-count: infinite;
-    animation-play-state: paused;   /* 没轮到它的层就别动，省电 */
-  }
-  .pose.on { opacity: 1; animation-play-state: running; }
-  /* 前半段左帧、后半段右帧。49.9%→50% 那一下是硬切、不插值，
-     不然会看到两张图横向滑过去。 */
-  @keyframes poseFlip {
-    0%, 49.9% { background-position: 0 0; }
-    50%, 100% { background-position: -122px 0; }
-  }
-  /* 6 帧的姿势（冲刺的头发是程序化生成的 6 帧，见 tools/whale-sway.py）：
-     显示宽度 122×6，关键帧每 1/6 走一格。
-     step-end 会把每一格的值保持到下一格，所以每格只写一个百分比就够。
-     **总时长不动**（还是 POSES[i].flip 秒）：这样腿脚换帧的快慢和 2 帧时一模一样，
-     多出来的帧只是把头发那一趟摆动切得更细。 */
-  .pose[data-frames="6"] {
-    background-size: 732px 106px;
-    animation-name: poseFlip6;
-  }
-  /* 单帧立绘：整张图就是一个姿势，没有「帧」可切。
-   contain 让正方形原图在 122×106 的框里按高度贴合、水平居中，底边对齐——她的脚
-   不会浮在半空。**这类图用不着 poseFlip**，硬套就是每隔半秒把自己横向切一刀。 */
-  .pose[data-frames="1"] {
-    background-size: contain;
-    background-position: center bottom;
-    animation: none;
-  }
-  @keyframes poseFlip6 {
-    0%      { background-position: 0 0; }
-    16.667% { background-position: -122px 0; }
-    33.333% { background-position: -244px 0; }
-    50%     { background-position: -366px 0; }
-    66.667% { background-position: -488px 0; }
-    83.333% { background-position: -610px 0; }
   }
 
   /* 气泡：左边一个小尖角指向立绘。
@@ -538,8 +470,7 @@
      `align-self: flex-start` 让气泡顶到行首、和她的头对齐。 */
   .work-bubble {
     position: relative; flex: 0 1 auto;
-    max-width: calc(100% - 128px);
-    align-self: flex-start; margin-top: 6px;
+    max-width: 100%;
     background: var(--panel-2); border: 1px solid var(--line);
     border-radius: var(--r); padding: 9px 12px;
     font-size: 14.5px; line-height: 1.5; color: var(--fg);
@@ -551,14 +482,8 @@
      原来这里有个 `display: -webkit-box` 把它盖掉了，于是「词条是空串就把气泡收起来」
      根本没生效，跑动那张旁边一直挂着一个没字的空药丸（2026-09-27 用户截图报的）。 */
   .work-bubble[hidden] { display: none; }
-  /* 尖角固定在气泡**上部**（对准她的头），不跟着气泡高度跑。原来钉在 50%，气泡一长高，
-     尖角就滑到她身子下边去了——长句和短句都得指着头，所以要一个绝对值。 */
-  .work-bubble::before, .work-bubble::after {
-    content: ''; position: absolute; top: 24px; width: 0; height: 0;
-    border: 6px solid transparent; margin-top: -6px;
-  }
-  .work-bubble::before { left: -12px; border-right-color: var(--line); }
-  .work-bubble::after { left: -11px; border-right-color: var(--panel-2); }
+
+
   /* 气泡里的话走和回答区同一套行内渲染（`mdInline`）：`**加粗**`、`` `代码` ``、链接会变成样式。
      代码的底色特意不用 --panel-2——那是气泡自己的底色，套上去等于看不见。 */
   .work-bubble strong { font-weight: 650; }
@@ -615,8 +540,8 @@
   }
   .stop:disabled { opacity: .5; }
 
-  /* 「完整」模式不放装饰（2026-10-03 用户点名）：立绘、气泡、光流进度条都不出现——
-     那一屏的过程由轨迹自己在逐条冒，再挂一只跑动的鲸鱼娘就是重复。只留
+  /* 「完整」模式不放装饰（2026-10-03 用户点名）：气泡、进度条都不出现——
+     那一屏的过程由轨迹自己在逐条冒，再挂一块「正在执行」就是重复。只留
      「已 N 秒 / 停止」那一行：去掉它就中止不了任务了。 */
   .work.bare .work-top, .work.bare .work-progress { display: none; }
 
@@ -692,8 +617,6 @@
   /* 系统里设了「减少动态效果」的人：不浮动、不翻帧、不轮播、进度条常亮。
      秒数照常走——那是信息，不是装饰。 */
   @media (prefers-reduced-motion: reduce) {
-    .work-stage { animation: none; }
-    .pose { animation: none; transition: none; }
     .work-progress i { width: 100%; opacity: .45; animation: none; }
     /* 扫光是状态指示、不是装饰，但用户要「减少动效」时整条关掉——底色照旧。 */
     .traj-shimmer { animation: none; background-image: none; color: var(--run); }
@@ -1817,7 +1740,6 @@
        拼进重绘里的话，每次状态广播都会把它重建一次，轮播和浮动动画会一直从头开始。 -->
   <div id="work" class="work" hidden>
     <div class="work-top">
-      <div class="work-stage" id="workStage"></div>
       <div class="work-bubble" id="workBubble">正在执行…</div>
     </div>
     <div class="work-progress"><i></i></div>
@@ -1829,11 +1751,11 @@
 
   <!-- 排队中的指令。**它必须留在 #work 外面。**
        原来它挂在 #work 里面，而 #work 在回答开始流式生成时会整块隐藏
-       （用户 2026-09-22 提的「内容开始流式生成的时候，鲸鱼娘的动画就可以消失了」），
+       （用户 2026-09-22 提的「内容开始流式生成的时候，那个动画就可以消失了」），
        于是排队列表被一起藏掉了。用户 2026-09-22 报：「排队列表现在手机端直接没出现了」。
        这个 bug 是**被流式修好之后才变明显的**：门槛从 120 降到 40 之后，回答很早就开始
        流式、state.live 长期有值，用户接着发指令时正好落在那个窗口里。
-       排队和鲸鱼娘是两件事——前者是「还有几条在等」，后者是「她正在忙」，
+       排队和「正在执行」是两件事——前者是「还有几条在等」，后者是「它正在忙」，
        别因为后者要藏就把前者一起藏了。 -->
   <div class="queue" id="queue" hidden></div>
 
@@ -2225,10 +2147,10 @@
     // 正在流出来的那一段。空字符串 = 这会儿没有东西要显示。
     live: '',
     /**
-     * 模型此刻的自言自语（鲸鱼娘的台词）：{ text, at } 或 null。
+     * 模型此刻的自言自语（模型此刻的自言自语）：{ text, at } 或 null。
      *
      * **和 live 严格分开**：live 非空时整块 #work 会让位（那是「回答正在往外冒」的
-     * 规矩），台词要是塞进 live，会出现「该说话的时候鲸鱼娘不见了」。
+     * 规矩），台词要是塞进 live，会出现「该说话的时候气泡不见了」。
      * 它也不进 #reply——2026-09-22 用户否掉的就是「过程的文字跑进回答区」。
      */
     thought: null,
@@ -2535,14 +2457,20 @@
   // 认不出来的语法原样留着：宁可少渲染，不能吃掉内容。
   var CODE_SLOT = '\u0000';
 
+  /** 取图地址。走 query 而不是靠 cookie：从门禁页手输 token 进来时是没有 cookie 的。 */
+  function artUrl(file, ext) {
+    return '/mini/art/' + file + '.' + (ext || 'webp') + '?token=' + encodeURIComponent(state.token)
+      + '&v=' + encodeURIComponent(BUILD);
+  }
+
   /**
    * 正文里的图片地址 → 真正去取的地址。三种写法见下面 mdInline 那段注释。
    *
    * 判据只有一条：**不是 http(s) 就走同源**。所以 `javascript:`、`data:` 这类
    * 永远不会出现在 src 里；认不出的地址最多是取回来 404，不会变成别的东西。
    *
-   * 放在这里而不是立绘那一段（artUrl 旁边）：页面测试是从 escapeHtml 抠到复制按钮
-   * 那一小段的，放外面就测不到真代码了。
+   * 放在这里而不是别处：页面测试是从 escapeHtml 抠到复制按钮那一小段切片的，
+   * 放外面就测不到真代码了。
    */
   function imageSrc(src) {
     if (/^https?:\/\//i.test(src)) return src;
@@ -2826,89 +2754,17 @@
     if (state.sound && navigator.vibrate) navigator.vibrate([200, 100, 200]);
   }
 
-  // ---------------- 「正在执行」的鲸鱼娘 ----------------
-  // 这些姿态是**装饰性**的：插件按设计只收「用户指令 + 最终回复」，拿不到 Agent
-  // 此刻在干什么，所以轮播不是进度播报，只是让等待有点人味。
-  // 气泡里的话也守着这条线——说的是「还在忙」，不谎报「已完成 60%」。
+  // ---------------- 「正在执行」面板 ----------------
+  // 这块只回答两件事：**还在跑吗**（不确定进度条 + 秒数）、**模型此刻在自言自语什么**（台词气泡）。
+  // 它拿不到真实进度——按设计插件只收「用户指令 + 最终回复」，画一个填到 80% 的条就是撒谎。
   //
-  // **还有一条更硬的规矩：不许报忧。** 用户正在等结果，这时候冒出「出错了」
-  // 「不对劲」之类的话，他会当真。可这些话跟 Agent 实际状态毫无关系，纯粹是
-  // 轮到第几张图。原来第 4 条写的「这里有点不对劲」就是这么个东西，2026-09-22
-  // 被用户指着问「这一句有问题还是什么」，已改掉。测试钉着这条：见 page.test.mjs
-  // 的「鲸鱼娘说的话里不许出现让人以为出事的字眼」。
+  // **还有一条更硬的规矩：不许报忧。** 用户正在等结果，这时候冒出「出错了」之类的话他会当真。
+  // 原来那句「这里有点不对劲」就是这么被用户指着问的（2026-09-22），已改掉。测试钉着这条：
+  // 见 page.test.mjs 的「说的台词里不许出现让人以为出事的字眼」。
   //
-  // 每个姿势是一张「并排若干帧」的雪碧图，flip 是**走完一整圈翻帧**的秒数
-  // （代码里它就是 animation-duration：两帧时每帧占 flip/2，六帧时每帧占 flip/6）：
-  // 敲键盘和小跑要快，端着茶等和托腮想事情要慢。节奏跟着动作走，才不像机器在闪。
-  /**
-   * 立绘按哪些后缀去找，以及凑不齐九张时退到哪一张。
-   *
-   * 顺序即优先级：同一张图同时有 webp 和 png 时用 webp（体积小一截）。
-   * 想让一套图生效，照着 `work-1-ready … work-9-talking`（加 `work-10-talking` 那张说话的）
-   * 命名放进 `lib/art/` 即可；只放一张的话，把它命名成 `POSE_FALLBACK` 那个名字。
-   */
-  var POSE_EXTS = ['webp', 'png'];
-  var POSE_FALLBACK = 'whale-girl';
+  // 2026-10-25：立绘（鲸鱼娘九姿势轮播）整条线拿掉。理由写在 CHANGELOG 里——
+  // 角色图既难维护又占地方，而这块真正有用的只有秒数、进度条和那句台词。
 
-  var POSES = [
-    { file: 'work-1-ready', line: '收到，这就去办', flip: 0.5 },
-    { file: 'work-2-reading', line: '先翻翻资料', flip: 1.5 },
-    { file: 'work-3-typing', line: '正在写…', flip: 0.34 },
-    // 这一句原来是「这里有点不对劲」。**那是错的，而且是有害的**：轮播是装饰性的，
-    // 轮到哪张图跟 Agent 实际在干什么毫无关系，可用户正在等结果，看到手机上写
-    // 「不对劲」只会以为出事了。用户 2026-09-22 实机指着这条问「这一句有问题还是
-    // 什么」，并指定改成「让我检查检查」——姿态叫 checking（核对），这句正好相称：
-    // 只说自己在看，不下判断。
-    { file: 'work-4-checking', line: '让我检查检查', flip: 1.2 },
-    { file: 'work-5-thinking', line: '嗯…让我想想', flip: 1.7 },
-    // 跑从 2026-09-28 起是 6 帧：先把两帧画出来的头发摆动收小（甩幅 155.3 → 70.6），
-    // 再用 tools/whale-sway.py 把这一趟切成六帧（甩幅 74.9），身体逐像素不动。
-    // 时长仍是 flip 秒、不乘帧数，所以腿脚换帧的快慢和两帧时一模一样，六帧只是把头发那一趟切得更细。
-    { file: 'work-6-running', line: '跑一遍看看', flip: 0.4 },
-    // 用户 2026-09-22 要的「跑步的动作」。它**不是第 8 个姿势，而是姿势之间的过渡**：
-    // 序列是「姿势1 → 冲刺 → 姿势2 → 冲刺 → …」，表达「她干完一件、跑去干下一件」。
-    // 所以它带 gap: true——不进轮播循环，只在每个姿势后面闪一下。
-    // **停留时长改过一次方向**：原本刻意比姿势短（怕它「成了又一个姿势」），
-    // 但用户两次要求拉长，现在 GAP_MS 和 POSE_MS 一样是 3.6 秒。理由见 GAP_MS 的注释。
-    // 它和上面那张小跑**刻意画得不一样**：侧面视角、身体前倾、步子拉得更开。
-    // **不带词条**（line 是空串）——用户指定的，冲刺是纯动作，硬配一句话反而弱。
-    // 文件名里的 8 只是个名字，**顺序由数组决定**，别拿它当序号。 */
-    // **帧数 6（2026-09-29）**：原来只有 2 帧，头发只能整个姿势硬切过去。2 帧的摆动
-    // 没法"流畅"——两帧之间没有中间态。现在这 6 帧的头发是拿冻结基准帧当底、
-    // 用位移场程序化算出来的（tools/whale-sway.py），身体逐像素不动：
-    // 越靠发梢摆得越大、相位越滞后，采样一个周期得到 6 帧。摆幅默认 15 像素、
-    // 相位滞后 300°，量出来的甩幅 128.9（用户给的目标区间 110~140）。
-    // **它只解决头发**：身体和腿仍然是那两帧，跑起来腿脚还是瞬间换的。
-    { file: 'work-8-sprinting', line: '', flip: 0.28, gap: true },
-    // 最后一个只在任务真的跑够久了才进轮播——到那时候说这句话才是实话。
-    // **它必须留在最后**：posePool 用的是 POSES.length - 1，靠位置认它。
-    { file: 'work-7-waiting', line: '还在忙，再等我一会儿', flip: 2.0 }
-  ];
-  var POSE_MS = 3600;
-  /** 冲刺那张停多久。
-   *
-   *  用户同一天提了两次，方向一致：2026-09-22 上午「间隙跑步动画的持续时间太短了」，
-   *  从 1.4 秒拉到 2.4 秒；同日下午又说「出现时间可以再久一些」，再拉到 3.6 秒，
-   *  **和一个正常姿势一样长**。
-   *
-   *  原先这里写着「过渡就该快，跟姿势一样长的话它就成了又一个姿势」——那个顾虑
-   *  被用户两次要求推翻了：他要的就是看清这个动作，而 2.4 秒（约 8 个跑步循环）
-   *  看着还是「一闪而过」。既然他愿意为它多等，就别再按「过渡」对待它。
-   *  代价是整圈轮播从 48 秒变 57.6 秒，「还在忙」那张（SLOW_MS = 60 秒）会在
-   *  第二圈开头才轮得到——比原来晚十几秒，可接受。
-   *
-   *  再要调就调这一个数，别再动 flip：那是跑步循环的快慢，跟停留时长是两回事。 */
-  var GAP_MS = 3600;
-  var SLOW_MS = 60000;
-
-  /**
-   * 说话那张立绘。**它不进 POSES。**
-   *
-   * POSES 是轮播的节目单，进去就要占一格（还要连带改 posePool 那套按位置认「还在忙」
-   * 的写法）。这张是**按需插播**的：只在宿主侧推来台词时出现，说完就回原来的顺序。
-   * 文件名里的 9 同样只是个名字，跟顺序无关。
-   */
-  var SPEAK_POSE = { file: 'work-9-talking', flip: 1.1 };
   /**
    * 一句台词占多久：**按字数算**，短的有起步时长，长的封顶。
    *
@@ -2931,91 +2787,22 @@
     return Math.min(SPEAK_MAX_MS, Math.max(SPEAK_MIN_MS, n * SPEAK_PER_CHAR_MS));
   }
 
-  var reducedMotion = false;
-  try { reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
-
   var work = {
-    startedAt: 0, pose: 0, poseTimer: null, tickTimer: null, layers: [],
-    // 说话那张立绘单独一层（不在 POSES 里，见 SPEAK_POSE）。
-    speakLayer: null,
-    // 正在说的那句台词，以及它最晚说到什么时候。
+    startedAt: 0,
+    tickTimer: null,
+    /** 正在说的那句台词，以及它最晚说到什么时候。 */
     speakText: '',
     speakUntil: 0,
-    // 已经念过的那句话的身份（宿主侧的 at）。快照来得很密，不认这个的话
-    // 同一句话会被反复「重新开始说」，动画一直从头播。
+    /** 已经念过的那句话的身份（宿主侧的 at），用来避免同一句反复重播。 */
     speakAt: null,
   };
-
-  /** 现在该用哪几条姿态：跑够一分钟才把「还在忙」放进来。 */
-  function posePool() {
-    return Date.now() - work.startedAt >= SLOW_MS ? POSES.length : POSES.length - 1;
-  }
-
-  /**
-   * 轮播的完整顺序：**每个姿势之间插一次冲刺**。
-   *
-   *   姿势1 → 冲刺 → 姿势2 → 冲刺 → 姿势3 → …
-   *
-   * 用户 2026-09-22 要的效果是「她在干活」：一个姿势带着词条出场，
-   * 然后跑动的她横穿过去，再出现下一个姿势。所以冲刺（带 gap 的那些）
-   * 自己不进这个循环——它只在间隙里出现，而且每次姿势后面都跟一次。
-   *
-   * 返回的是 POSES 的下标序列，长度随「跑了多久」变（前 60 秒不含「还在忙」）。
-   */
-  function poseSequence() {
-    var n = posePool();
-    var gaps = [];
-    for (var g = 0; g < POSES.length; g += 1) {
-      if (POSES[g].gap) gaps.push(g);
-    }
-    var out = [];
-    for (var i = 0; i < n; i += 1) {
-      if (POSES[i].gap) continue;
-      out.push(i);
-      for (var k = 0; k < gaps.length; k += 1) out.push(gaps[k]);
-    }
-    return out;
-  }
-
-  /** 立绘地址。走 query 而不是靠 cookie：从门禁页手输 token 进来时是没有 cookie 的。 */
-  function artUrl(file, ext) {
-    return '/mini/art/' + file + '.' + (ext || POSE_EXTS[0]) + '?token=' + encodeURIComponent(state.token)
-      + '&v=' + encodeURIComponent(BUILD);
-  }
-
-  /**
-   * 一张姿势的 background-image 串。
-   *
-   * 为什么是一串而不是一张：立绘可能来自不同格式的图包（位图多半是 png，
-   * 原作那套是 webp，自己画的矢量是 svg），而 CSS 的多层背景**哪层没加载出来就不画哪层**，
-   * 于是把候选按优先级叠起来，浏览器自己会挑能用的那张 —— 服务端不用改、页面不用探测。
-   *
-   * 末尾还会再挂一张兜底图（POSE_FALLBACK）：只放了一张角色图、凑不齐九种姿势时，
-   * 九张都退到它，她至少还在，而不是整块空着。
-   */
-  function poseBackground(file) {
-    var out = [];
-    for (var e = 0; e < POSE_EXTS.length; e += 1) {
-      out.push('url("' + artUrl(file, POSE_EXTS[e]) + '")');
-    }
-    if (POSE_FALLBACK && POSE_FALLBACK !== file) {
-      for (var f = 0; f < POSE_EXTS.length; f += 1) {
-        out.push('url("' + artUrl(POSE_FALLBACK, POSE_EXTS[f]) + '")');
-      }
-    }
-    return out.join(', ');
-  }
 
   /**
    * 把一句话写进气泡。
    *
-   * 走的是和回答区同一个行内渲染（`mdInline`，见上面那段 Markdown 渲染）。它的顺序是
-   * **先转义、再上标签**：模型原话里的尖括号仍然只是字面上的尖括号，不会被当成标签；
-   * 只有它自己写的 `**粗体**`、`` `代码` ``、链接才会变成样式。留一个口子给"以后不加"。
-   *
-   * 之前这里是 `textContent`（一句纯文本），于是 `**重启把连接掐断**` 连星号一起端到了
-   * 用户面前（2026-09-27 用户报的）。词条那几种是我们自己写的、不含 markdown，也一起走
-   * 这个入口——两条路各写各的，早晚会分叉。
+   * 走的是和回答区同一套行内渲染（`mdInline`，见上面那段 Markdown 渲染）：先转义、再上标签。
+   * 模型原话里的尖括号仍然只是字面的尖括号；只有它自己写的 `**粗体**`、`` `代码` ``、
+   * 链接才会变成样式。
    */
   function paintBubble(line) {
     var text = line || '';
@@ -3023,40 +2810,30 @@
     $('workBubble').innerHTML = mdInline(text);
   }
 
-  function paintPose(index) {
-    ensurePoses();
-    for (var i = 0; i < work.layers.length; i += 1) {
-      work.layers[i].classList.toggle('on', i === index);
-    }
-    // 轮播回来时把说话那张收掉——它在 POSES 之外，不归上面那个循环管。
-    if (work.speakLayer) work.speakLayer.classList.toggle('on', false);
-    // 有的姿势不带词条（比如那张冲刺）：词条是空串就把整个气泡收起来。
-    // 留一个空泡泡在那儿比不放气泡更怪——那个尖角还指着她的头，像话没说出来。
-    // 收起气泡不会让立绘挪位：.work-top 有 min-width 兜着，行宽不变。
-    paintBubble(POSES[index].line);
-  }
+  /** 台词气泡的收尾计时：一句话到点就撤，不让它赖在屏幕上假装还在说。 */
+  var speakTimer = null;
 
   /**
-   * 换成说话那张，把台词写进气泡。
+   * 说一句台词。
    *
-   * 台词是**模型的原话**（宿主机只从旁白里取，模型自己想的那些不上手机），
-   * 所以这里只做一件事：原样写出来，不加不减——渲染的那一步交给 `paintBubble`。
+   * 原来这里还要切立绘图层（把正常那几张关掉、把说话那张打开）。立绘整条线拿掉之后，
+   * 「说话」只剩把字写进气泡这一件事 —— 她说什么，比她的姿势重要。
    */
   function paintSpeak(text) {
-    ensurePoses();
     paintBubble(text);
-    // 说话那张没加载出来时（预热那次报错翻过这个开关）：台词照说，**但不动图层**——
-    // 把正常那几张全关掉、换上一张空的，她会当场从屏幕上消失（2026-09-27 立的闸）。
-    if (work.speakReady === false) return;
-    for (var i = 0; i < work.layers.length; i += 1) work.layers[i].classList.toggle('on', false);
-    if (work.speakLayer) work.speakLayer.classList.toggle('on', true);
+    if (speakTimer) clearTimeout(speakTimer);
+    var left = Math.max(600, work.speakUntil - Date.now());
+    speakTimer = setTimeout(function () {
+      speakTimer = null;
+      paintBubble('');
+    }, left);
   }
 
   /**
    * 宿主侧送来的新台词要不要现在就说。
    *
-   * 判据是 at（那句话的身份）：**同一句只说一次**。快照广播来得很密，每来一条就重说
-   * 一遍的话，说话这张立绘会一直从头播，看着像卡住不动。
+   * 判据是 at（那句话的身份）：**同一句只说一次**。快照广播来得很密，每来一条都重说
+   * 一遍的话，同一句话的计时会被无限续命，气泡就再也撤不掉了。
    */
   function maybeSpeak() {
     var t = state.thought;
@@ -3079,133 +2856,12 @@
     $('workElapsed').textContent = elapsedLabel(Date.now() - work.startedAt);
   }
 
-  /**
-   * 立绘的建层与预热，**只在真的要跑的时候才做**。
-   *
-   * 2026-10-09 改：原来页面一打开就把九张 webp（约 700KB）全下下来，理由写在原来
-   * 那句注释里——「不然第一次正在执行会闪一下空白」。但代价是**每次打开页面都先付
-   * 700KB**，而大多数打开只是看一眼结论，根本不会开跑。
-   *
-   * 现在分两步：
-   *   ① 用户在输入框里敲字（真要发指令了）时预热一次——等他按下发送，图基本已经在缓存里；
-   *   ② 万一没预热就开跑（比如手机上另一处触发），`paintPose` 会兜底建层，
-   *      代价只是第一帧可能晚几百毫秒，气泡里的「正在执行…」照常先出现。
-   * 判据是 `posesReady`，重复调用只建一次。
-   */
-  var posesReady = false;
-  function ensurePoses() {
-    if (posesReady) return;
-    posesReady = true;
-    preloadPoses();
-  }
-
-  /**
-   * 用户真的在敲字时预热立绘。
-   *
-   * 为什么盯的是输入框而不是页面加载：**打开页面 ≠ 要跑任务**。大多数打开只是看一眼
-   * 结论；而开始敲字几乎等于「马上要发」。等他按下发送，九张图多半已经在缓存里了，
-   * 第一帧不会闪白。只挂一次（once），打完字之后不再重复触发。
-   */
-  function warmPosesOnType() {
-    var arm = function () { ensurePoses(); };
-    inputEl.addEventListener('focus', arm, { once: true });
-    inputEl.addEventListener('input', arm, { once: true });
-  }
-
-  /** 立绘的建层与预热（**调用方保证只调一次**，见上面 ensurePoses）。 */
-  function preloadPoses() {
-    var stage = $('workStage');
-    stage.innerHTML = '';
-    work.layers = [];
-    for (var i = 0; i < POSES.length; i += 1) {
-      var layer = document.createElement('div');
-      layer.className = 'pose';
-      // 帧数决定显示宽度和用哪套关键帧：1 帧是单帧整图（本项目用的），2 帧 / 6 帧是雪碧图。
-      // **时长不跟着帧数放大**：一圈还是 flip 秒，这样腿脚换帧的快慢跟以前一样。
-      layer.setAttribute('data-frames', POSES[i].frames || 1);
-      layer.style.backgroundImage = poseBackground(POSES[i].file);
-      layer.style.animationDuration = POSES[i].flip + 's';
-      stage.appendChild(layer);
-      work.layers.push(layer);
-      // #work 是 hidden（display:none），浏览器**不会**为它下载背景图。
-      // 所以这里得拿一个游离的 <img> 主动拉一次，否则第一次「正在执行」会先闪空白。
-      // 每个后缀各拉一次：拿不准这套图是 webp 还是 png，拉错的那条就是个 404，
-      // 比「发完指令先空白两秒」便宜得多。
-      for (var w = 0; w < POSE_EXTS.length; w += 1) {
-        var warm = document.createElement('img');
-        warm.src = artUrl(POSES[i].file, POSE_EXTS[w]);
-      }
-    }
-    // 说话那张一起建好、一起预热：等台词来了再新建图层，会说第一个字之前先闪一下空白。
-    var speak = document.createElement('div');
-    speak.className = 'pose';
-    speak.setAttribute('data-frames', SPEAK_POSE.frames || 1);
-    speak.style.backgroundImage = poseBackground(SPEAK_POSE.file);
-    speak.style.animationDuration = SPEAK_POSE.flip + 's';
-    stage.appendChild(speak);
-    work.speakLayer = speak;
-    // 说话那张要是加载不出来（图还没画好、或者网络半路断了）：**别把舞台清空**。
-    // 默认按「图在」处理，只有真报错才翻成 false——正常路径一个字都不变；
-    // 翻成 false 之后就退成「台词照说、人照轮播」，而不是她整个消失（见 paintSpeak）。
-    //
-    // 判据是「所有候选后缀都拿不到」才算没有：只认 webp 的话，一套 png 图会被判成
-    // 「她没有说话那张」，于是说话时永远停在轮播那一格。
-    var pending = POSE_EXTS.length;
-    var anyLoaded = false;
-    var settle = function (success) {
-      if (success) anyLoaded = true;
-      pending -= 1;
-      if (pending === 0) work.speakReady = anyLoaded;
-    };
-    for (var se = 0; se < POSE_EXTS.length; se += 1) {
-      var warmSpeak = document.createElement('img');
-      warmSpeak.onload = function () { settle(true); };
-      warmSpeak.onerror = function () { settle(false); };
-      warmSpeak.src = artUrl(SPEAK_POSE.file, POSE_EXTS[se]);
-    }
-    paintPose(0);
-  }
-
-  /**
-   * 轮播往前走一步，然后按**这一步是什么**决定下次隔多久。
-   *
-   * 原来是一个固定的 setInterval，每 3.6 秒换一张。现在冲刺要停得短，
-   * 固定间隔就做不到——所以改成自己排下一次的 setTimeout。
-   * 停止时 stopWork 会把待排的那一次清掉，不会漏跑。
-   */
-  function nextPose() {
-    // 正在说话：这一格让给她，轮播停在这儿等（work.pose 不动，所以恢复时接着的那一格
-    // 就是被打断的那一格，而不是从头来）。到点或来了新台词都由 maybeSpeak 管。
-    if (work.speakUntil) {
-      var left = work.speakUntil - Date.now();
-      if (left > 0) {
-        paintSpeak(work.speakText);
-        // 睡到「该收尾的那一刻」为止，不多不少：按 3.6 秒一格睡的话，
-        // 这个上限会被拖到整格之后，最后那句台词要多挂将近一秒。
-        work.poseTimer = setTimeout(nextPose, Math.min(POSE_MS, left));
-        return;
-      }
-      work.speakUntil = 0;
-      work.speakText = '';
-    }
-    var seq = poseSequence();
-    work.pose = (work.pose + 1) % seq.length;
-    var index = seq[work.pose];
-    paintPose(index);
-    work.poseTimer = setTimeout(nextPose, POSES[index].gap ? GAP_MS : POSE_MS);
-  }
-
   function startWork() {
-    // 已经在跑就别重来。状态广播来得很密，每次重置的话姿态会永远卡在第一张。
+    // 已经在跑就别重来。状态广播来得很密，每次重置的话秒数会永远卡在 0。
     if (work.startedAt) return;
-    ensurePoses();
     work.startedAt = Date.now();
-    work.pose = 0;
-    paintPose(0);
     tickElapsed();
     work.tickTimer = setInterval(tickElapsed, 1000);
-    if (reducedMotion) return;   // 关掉动画的人就停在一张上，秒数照常走
-    work.poseTimer = setTimeout(nextPose, POSE_MS);
   }
 
   /** 停止请求的兜底计时器。放在 stopWork 前面，别靠 var 提升兜着。 */
@@ -3218,9 +2874,7 @@
     // 还留着上一轮的台词（广播没到），新一轮一开场它就会被当成新话说一遍。
     work.speakUntil = 0;
     work.speakText = '';
-    // 轮播现在是自己排下一次的 setTimeout（见 nextPose），用 clearInterval 清
-    // setTimeout 在浏览器里也行，但写 clearTimeout 更不容易让人误会。
-    if (work.poseTimer) { clearTimeout(work.poseTimer); work.poseTimer = null; }
+    if (speakTimer) { clearTimeout(speakTimer); speakTimer = null; }
     if (work.tickTimer) { clearInterval(work.tickTimer); work.tickTimer = null; }
     // 跑完了就把按钮复位，下一次「正在执行」才是干干净净的一个「停止」。
     if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
@@ -3389,10 +3043,10 @@
     // 那块东西不该先消失一下再冒出来。
     //
     // 但**正在流式写回答的时候要收起来**：回答本身已经在屏幕上长出来了，
-    // 底下再挂一只鲸鱼娘就是重复——用户要看的字正在往上冒，那块既占地方又抢注意力。
-    // 用户 2026-09-22 实机提的：「内容开始流式生成的时候，鲸鱼娘的动画就可以消失了」。
+    // 底下再挂一条进度条就是重复——用户要看的字正在往上冒，那块既占地方又抢注意力。
+    // 用户 2026-09-22 实机提的：「内容开始流式生成的时候，那个动画就可以消失了」。
     // 注意这里用 state.live 判断，不是「有没有在跑」——跑着但还没到吐字那一步
-    // （比如正在调工具）时，鲸鱼娘还是要留着，那是它唯一该出现的时候。
+    // （比如正在调工具）时，这块还是要留着，那是它唯一该出现的时候。
     var busy = (state.running || queued > 0) && !state.live;
     el.hidden = !busy;
     if (busy) {
@@ -3421,9 +3075,9 @@
     // 而 DSH 本身在跑着的时候是收的。
     updateStatusUI();
     // 放这里而不是 render() 里：SSE 的 status 事件只调 setRunning、不重绘，
-    // 漏了这一处的话「运行中」变了而鲸鱼娘不出现。
+    // 漏了这一处的话「运行中」变了而这块面板不出现。
     // 另外它也是**唯一**会调 paintWork 的地方，而 paintWork 还要看 state.live
-    // （流式一露头就把鲸鱼娘收起来）。快照每次都带 running，所以 applySnapshot
+    // （流式一露头就把面板收起来）。快照每次都带 running，所以 applySnapshot
     // 会走到这儿、live 的变化也就跟着生效了——别把这个调用挪走。
     paintWork();
   }
@@ -3642,7 +3296,7 @@
    * 该不该自动滚到底。
    *
    * 用户 2026-09-22 实机提的：「有动画的时候手机端页面运动到上面都会自动调回底部，
-   * 这种机制没必要吧。」原来每次重画都无条件滚到底，而鲸鱼娘一帧一动、流式一秒七次，
+   * 这种机制没必要吧。」原来每次重画都无条件滚到底，而那块面板一帧一动、流式一秒七次，
    * 于是想往上翻根本翻不动——手一松就被拽回去。
    *
    * 改成只在**本来就在底部**的时候才跟着滚：新内容进来时视野跟着走，
@@ -4349,7 +4003,7 @@
   }
 
   /**
-   * 旁白那一段（对用户说的话，别的模式由鲸鱼娘气泡念，2026-10-04 起完整模式塞回轨迹）：
+   * 旁白那一段（对用户说的话，别的模式由台词气泡念，2026-10-04 起完整模式塞回轨迹）：
    * 照 PC 是过程里的一段正文——不带图标、不可点开，说完就摆在这儿。
    * 正文走 markdown 渲染（和回答区一个待遇：粗体、行内代码、列表都认），
    * 不是原样贴星号（同日用户顺手报的）。
@@ -4553,7 +4207,7 @@
     // 正在流出来的那一段。服务端只在自己决定要显示之后才写它，所以这里是空字符串
     // 不代表模型没在写，只代表「还不到显示的时候」。
     if ('live' in snap) state.live = snap.live || '';
-    // 模型此刻的自言自语（鲸鱼娘的台词）。null = 这会儿没话说，气泡回到该姿势自己的词条。
+    // 模型此刻的自言自语（模型此刻的自言自语）。null = 这会儿没话说，气泡回到该姿势自己的词条。
     if ('thought' in snap) state.thought = snap.thought || null;
     if (snap.history) state.history = snap.history;
     // 「服务端正去读这个会话的完整记录」。点开一个没看过的会话时，那一串要读一会儿
@@ -5243,7 +4897,7 @@
       receiveTrajectoryFrame(frame);
     });
     // 活片段帧（2026-10-04 用户解禁：完整模式要「正在想的片段一点点顺出来」）。
-    // 只进完整模式的轨迹组头；聊天/单帧、鲸鱼娘气泡一个字节都不碰。
+    // 只进完整模式的轨迹组头；聊天/单帧、台词气泡一个字节都不碰。
     es.addEventListener('trajectory-live', function (e) {
       var frame;
       try { frame = JSON.parse(e.data); } catch (err) { return; }
@@ -5851,7 +5505,7 @@
     // 应该马上下滚回底部。」
     //
     // 这跟 atBottom 那条规则不冲突，两者管的不是一件事：那条管的是**页面自己在动**
-    // （鲸鱼娘在跳、流式在写），别把正在翻历史的用户拽回来；这条管的是**用户自己按了发送**，
+    // （进度条在走、流式在写），别把正在翻历史的用户拽回来；这条管的是**用户自己按了发送**，
     // 那是主动动作，他想看自己刚发出去的那条、以及后面的回答，所以不管当时翻到哪儿都回底部。
     //
     // 位置有讲究：必须放在 setRunning 之前。setRunning 会触发一次渲染，而渲染里的
@@ -7229,7 +6883,6 @@
         localStorage.setItem('dshMiniToken', value);
         state.token = value;
         $('gate').classList.remove('open');
-        // 立绘不再在这里预热：它改成「用户真的在敲字 / 真的开跑」时才加载（见 ensurePoses）。
         connect();
       })
       .catch(function () { $('gateErr').textContent = 'token 不正确，请核对后重试'; });
@@ -7338,7 +6991,6 @@
   } else if (!state.token) {
     showGate();
   } else {
-    warmPosesOnType();
     connect();
   }
   // 任何一次触摸都顺手解锁音频，避免用户第一次收到回复时没声音。
