@@ -26,10 +26,33 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-将 `dsh-remote-lite` 安装到 profile 并重启 DSH。默认组合不声明该插件，因此需要显式安装并在活动组合中插入插件行。
+本包目前**尚未发布到 npm**，只能从 GitHub 仓库安装，或在本机以本地路径链接。两种方式都需要显式指定 `--profile`，`dsh plugin` 不会自动推断目标 profile。
+
+默认组合不声明该插件，安装后需确认 `dsh.profile.bundles` 已包含 `"dsh-remote-lite"`（`dsh plugin add` 会自动追加）。
+
+### 从 GitHub 安装
 
 ```sh
-dsh plugin add dsh-remote-lite
+dsh plugin --profile web add github:coderxxw/dsh-remote-lite
+```
+
+该方式会拉取 `main` 分支的最新提交，因此版本随仓库变动，不跟随已发布版本。
+
+### 从本地路径安装（开发用）
+
+适用于本机已有仓库副本、需要改代码即时生效的场景：
+
+```sh
+dsh plugin --profile web add link:/path/to/dsh-remote-lite
+```
+
+Windows 上路径写作 `link:D:/path/to/dsh-remote-lite`。
+
+改代码后重启 DSH 即可生效，不需要重新安装。
+
+### 重启并验证
+
+```sh
 dsh web
 ```
 
@@ -154,14 +177,11 @@ npm install
 npm run check     # 语法检查
 ```
 
-本地调试时将仓库链接进 profile：
+本地调试时用 `link:` 方式安装（见[从本地路径安装](#use-this-package)），改代码后重启 DSH 即生效。
 
-```sh
-cd ~/.dsh/profiles/web
-pnpm add link:D:/path/to/dsh-remote-lite
-```
+`dsh plugin add` 会自动把包名追加进 profile 的 `dsh.profile.bundles`；若手工维护该数组，注意条目名必须与包名一致，否则插件不会被加载。
 
-并在该 `package.json` 的 `dsh.profile.bundles` 数组中追加 `"dsh-remote-lite"`。改代码后重启 DSH 生效。`prepublishOnly` 会在发布前执行语法检查。
+`prepublishOnly` 会在发布前执行语法检查。
 
 -----
 

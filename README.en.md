@@ -26,10 +26,33 @@ Two transports are available: plaintext HTTP on the local network, and an HTTPS 
 <a id="use-this-package"></a>
 ## Use this package
 
-Install `dsh-remote-lite` into a profile and restart DSH. The default composition does not declare this plugin, so it must be installed explicitly and inserted as an active row.
+This package is **not yet published to npm**. It can only be installed from the GitHub repository, or linked from a local path. Both forms require an explicit `--profile`; `dsh plugin` does not infer the target profile.
+
+The default composition does not declare this plugin. After installation, confirm `dsh.profile.bundles` contains `"dsh-remote-lite"` — `dsh plugin add` appends it automatically.
+
+### Installing from GitHub
 
 ```sh
-dsh plugin add dsh-remote-lite
+dsh plugin --profile web add github:coderxxw/dsh-remote-lite
+```
+
+This resolves to the latest commit on `main`, so the installed version tracks the repository rather than a published release.
+
+### Installing from a local path (development)
+
+For machines that already hold a repository clone and need code changes to take effect immediately:
+
+```sh
+dsh plugin --profile web add link:/path/to/dsh-remote-lite
+```
+
+On Windows the path is written as `link:D:/path/to/dsh-remote-lite`.
+
+Restart DSH after editing code; no reinstall is required.
+
+### Restart and verify
+
+```sh
 dsh web
 ```
 
@@ -154,14 +177,11 @@ npm install
 npm run check     # syntax check
 ```
 
-Link the repository into a profile for local development:
+For local development, install through `link:` (see [Installing from a local path](#use-this-package)); restart DSH after editing code.
 
-```sh
-cd ~/.dsh/profiles/web
-pnpm add link:D:/path/to/dsh-remote-lite
-```
+`dsh plugin add` appends the package name to the profile's `dsh.profile.bundles` automatically. If maintaining that array by hand, the entry must match the package name exactly or the plugin will not load.
 
-Then append `"dsh-remote-lite"` to `dsh.profile.bundles` in that `package.json`. Restart DSH after changing code. `prepublishOnly` runs the syntax check before an npm publish.
+`prepublishOnly` runs the syntax check before an npm publish.
 
 -----
 
