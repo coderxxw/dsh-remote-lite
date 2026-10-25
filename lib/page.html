@@ -450,12 +450,16 @@
     margin-top: 20px; padding-top: 14px;
     border-top: 1px dashed var(--line);
   }
-  /* 立绘拿掉之后，这一行不再为角色预留宽度（原来是「立绘 122 + 间隙 6 + 气泡」算出来的 299），
-     气泡想多宽就多宽，窄屏自然跟着收。 */
+  /* 「执行面板」这一行现在有两种长相，取决于有没有立绘：
+       有图 → 左边立绘 84px，右边气泡；没图 → 只有气泡，占满整行。
+     两种都不"预留"：`.work-art[hidden]` 是 display:none，没有图时它连盒模型都不参与。 */
   .work-top {
-    max-width: 100%;
-    margin: 0 auto;
+    display: flex; align-items: flex-start; gap: 8px;
+    max-width: 100%; margin: 0 auto;
   }
+  .work-art { flex: 0 0 auto; width: 84px; }
+  .work-art[hidden] { display: none; }
+  .work-art img { display: block; width: 100%; height: auto; }
 
   /* 气泡：左边一个小尖角指向立绘。
      宽度**贴着自己的词条**，多长就多宽，右边不留空。
@@ -1776,6 +1780,9 @@
        拼进重绘里的话，每次状态广播都会把它重建一次，轮播和浮动动画会一直从头开始。 -->
   <div id="work" class="work" hidden>
     <div class="work-top">
+      <!-- 立绘位。默认 hidden —— 没图的时候一个像素都不占，也不留空框。
+           往 lib/art/ 放一张 mascot.webp 并重启，这里就会出现（见 applyArt）。 -->
+      <div class="work-art" id="workArt" hidden><img id="workArtImg" alt=""></div>
       <div class="work-bubble" id="workBubble">正在执行…</div>
     </div>
     <div class="work-progress"><i></i></div>
@@ -2508,6 +2515,32 @@
   function artUrl(file, ext) {
     return '/mini/art/' + file + '.' + (ext || 'webp') + '?token=' + encodeURIComponent(state.token)
       + '&v=' + encodeURIComponent(BUILD);
+  }
+
+  /**
+   * 「执行面板要不要摆立绘」由服务端说了算（`/mini/api/version` 的 `art` 字段）。
+   *
+   * 这段代码存在，但**默认不生效**：`lib/art/` 里没有 mascot 时服务端回 null，
+   * `#workArt` 一直是 hidden，一个像素都不占。以后往里放一张图、重启 DSH，它就出现在
+   * 气泡左边——不用改页面，也不用重新设计版面。
+   *
+   * 名字固定（`mascot.webp` / `mascot.png`），不扫目录：这条路要可预测，
+   * 不该因为目录里多了一张备用图就换一张脸。
+   */
+  function applyArt(name) {
+    var box = $('workArt');
+    var img = $('workArtImg');
+    if (!box || !img) return;
+    if (!name) {
+      box.hidden = true;
+      img.removeAttribute('src');
+      return;
+    }
+    var m = /\.(webp|png)$/i.exec(name);
+    if (!m) { box.hidden = true; return; }
+    var src = artUrl(name.slice(0, name.length - m[0].length), m[1].toLowerCase());
+    if (img.getAttribute('src') !== src) img.setAttribute('src', src);
+    box.hidden = false;
   }
 
   /**
@@ -4940,18 +4973,53 @@
     var titleEl = row.querySelector('.s-title');
     var title = titleEl && titleEl.textContent ? titleEl.textContent : '这个对话';
     openMenu({
-      title: '归档这个对话？',
-      text: '「' + title + '」会从这个工作区的列表里移走，它正在跑的任务会先被停掉。'
-        + '归档不是删除 —— 之后可以在电脑端侧栏的「已归档」里恢复。',
+      title: '处理这个对话',
+      text: '「' + title + '」可以归档（移出列表、停掉正在跑的任务，之后能在电脑端「已归档」里恢复），'
+        + '也可以永久删除（记录从磁盘上消失，不可恢复）。',
+      actions: [
+        {
+          label: '归档（可恢复）',
+          run: function () {
+            return api('/mini/api/session/archive', {
+              method: 'POST',
+              body: JSON.stringify({ sessionId: id }),
+            }).then(function () {
+              refreshNavAfterRemoval();
+              toast('已归档');
+            });
+          },
+        },
+        {
+          label: '永久删除…',
+          danger: true,
+          run: function () { askDeleteForever(id, title); },
+        },
+      ],
+    });
+  }
+
+  /**
+   * 永久删除的二次确认。
+   *
+   * 为什么还要一层：上一个菜单里它是和「归档」并排的一个选项，而这一颗按下去**没有退路**。
+   * 二次确认的文案不再重复"可以恢复"，而是明确说清"删了什么、恢复不了"——
+   * 两份文案各说一半，用户才不会把两件事记混。
+   */
+  function askDeleteForever(id, title) {
+    openMenu({
+      title: '永久删除「' + title + '」？',
+      text: '这会把这个会话的记录从磁盘上删掉：消息、工具调用记录、执行轨迹全部消失，'
+        + '**不能恢复**。要留后路请用「归档」。',
       actions: [{
-        label: '归档',
+        label: '永久删除，不能恢复',
+        danger: true,
         run: function () {
-          return api('/mini/api/session/archive', {
+          return api('/mini/api/session/delete', {
             method: 'POST',
-            body: JSON.stringify({ sessionId: id }),
-          }).then(function () {
+            body: JSON.stringify({ sessionId: id, confirm: 'delete' }),
+          }).then(function (r) {
             refreshNavAfterRemoval();
-            toast('已归档');
+            toast(r && r.files === false ? '记录已删除' : '已永久删除');
           });
         },
       }],
@@ -7177,14 +7245,13 @@
   /**
    * 服务器换过代码就自己刷新一次。
    *
-   * 为什么非要有：这个页面是**启动时读进内存**才发出去的（改了要重启 DSH），而立绘是
-   * **每次请求现读盘**的（文件一改就生效）。于是"页面和图不是同一时刻换的"这件事真的
-   * 会发生——2026-09-29 用户在手机上看到「原来的两条腿变成 4 条腿了」：手里那份页面还是
-   * 旧的（写死按两格、244 像素宽去切），硬盘上的图已经是六格的了，122 像素的窗口里于是
-   * 挤进三个压扁的小人，看着就是一堆腿。
+   * 为什么非要有：这个页面是**启动时读进内存**才发出去的（改了要重启 DSH）。
+   * 手机浏览器把标签页留几天是常事，于是「手里那份页面」和「服务器现在那份代码」
+   * 完全可能差好几个版本——界面按旧协议发请求、服务端按新协议解析，症状千奇百怪，
+   * 而且都像"功能坏了"。
    *
    * `/mini/api/version` 报的是**服务器现在这份代码**的构建号：和手里这份一样就什么都不做，
-   * 不一样说明页面过期了，刷一次就好（刷新后拿到的新页面自带正确的切帧规则）。
+   * 不一样说明页面过期了，刷一次就好。
    * **正在打字就先不刷**——用户没发出去的话不能被吞掉，等下一轮再说。
    */
   function watchBuild() {
@@ -7198,6 +7265,9 @@
         var el = $('dshVersion');
         if (el) { el.textContent = 'DeepSeek Harness ' + r.dshVersion; el.hidden = false; }
       }
+      // 顺带问一句「有没有立绘」。**没有就不留位置**：这块现在默认是空的，
+      // 以后往 lib/art/ 放一张 mascot.webp 就会出现（见 page.js 的 artFileName）。
+      applyArt(r && r.art);
       if (!r || !r.build || r.build === BUILD) return;
       if (inputEl.value && inputEl.value.trim()) return;
       location.reload();

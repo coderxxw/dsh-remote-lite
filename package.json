@@ -16,6 +16,7 @@
     "icon.svg",
     "lib/**/*.js",
     "lib/page.html",
+    "lib/art/**",
     "client/client.js",
     "cordis.patch.yml",
     "LICENSE",

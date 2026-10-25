@@ -51,7 +51,7 @@ The plugin does **not** proxy the desktop UI — the phone gets instructions and
 - **Session navigation.** Workspace → session tree, create sessions or workspaces, browse directories to pick a location; history is backfilled from session logs the plugin never witnessed.
 - **Lock-screen push.** Bark, ntfy and Telegram channels, plus service-worker system notifications (HTTPS only).
 - **Desktop view.** A built-in reverse proxy serves the desktop GUI on the phone, for the settings pages the mobile UI cannot reach.
-- **Housekeeping.** Long-press a session row to archive that conversation, or long-press a workspace title to archive every conversation under it — or delete the workspace outright.
+- **Housekeeping.** Long-press a session row to **archive** it (recoverable) or **delete it permanently** (the record leaves the disk for good); long-press a workspace title to archive every conversation under it — or delete the workspace outright.
 - **Verifiable runtime.** `/mini/api/version` returns a build fingerprint, so you can tell whether the process answering you is the code you just edited.
 
 ## Requirements
@@ -133,7 +133,8 @@ With `bindAddress: "auto"` the plugin binds every usable interface (virtual adap
 | Approvals and questions | Cards appear automatically when the desktop side asks |
 | Subagents | Side panel: inspect, follow up, stop individually |
 | Model and permissions | Status bar and settings sheet |
-| Archive a chat / delete a workspace | **Long-press** a row or a workspace title in the left drawer |
+| Archive / permanently delete a chat | **Long-press** a session row in the drawer |
+| Archive a whole folder / delete a workspace | **Long-press** a workspace title |
 
 ## Configuration
 
@@ -248,7 +249,7 @@ Main routes on the plugin's own server (`:3090`):
 | Interaction | `POST /mini/api/approval`, `/answer`, `/subagent/ask`, `/set-model`, `/permissions` |
 | Navigation | `GET /mini/api/workspaces`, `/browse`, `/browse/roots`; `POST /mini/api/bind`, `/browse/mkdir` |
 | Misc | `GET /mini/api/plugins`, `/models`, `/commands`, `/mirror` |
-| Cleanup | `POST /mini/api/session/archive`, `/workspace/archive`, `/workspace/delete` |
+| Cleanup | `POST /mini/api/session/archive`, `/session/delete`, `/workspace/archive`, `/workspace/delete` |
 
 On the host web server (default `:10001`), for the settings tab: `/mini-remote/pairing`, `/mini-remote/tunnel`, `/mini-remote/tunnel/zones`, `/mini-remote/tunnel/named`, `/mini-remote/token`.
 
