@@ -1,0 +1,5 @@
+# dsh-remote-lite —— dsh.bundle 清单要求的加载配置
+# 单包单插件：装一次，插件自带的移动端页面即可用。
+- insert:
+    - id: dsh-remote-lite
+      name: dsh-remote-lite

@@ -1,0 +1,25 @@
+{
+  "port": 3090,
+  "bindAddress": "auto",
+  "tunnel": {
+    "enabled": true,
+    "mode": "named",
+    "cloudflaredPath": "",
+    "hostname": "dsh.example.com",
+    "accountId": "",
+    "apiToken": "",
+    "tunnelId": "",
+    "tunnelToken": "eyJhIjoi...从 Cloudflare 隧道页面复制"
+  },
+  "token": "my-remote-2026",
+  "maxHistory": 50,
+  "defaultMode": "minimal",
+  "notify": {
+    "enabled": true,
+    "channel": "ntfy",
+    "ntfyUrl": "https://ntfy.sh",
+    "ntfyTopic": "my-private-topic",
+    "onlyWhenBackground": true,
+    "maxLength": 200
+  }
+}

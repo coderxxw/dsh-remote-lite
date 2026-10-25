@@ -1,0 +1,85 @@
+{
+  "name": "dsh-remote-lite",
+  "version": "1.0.0",
+  "description": "用手机远程操作 DSH：填一个 Cloudflare API Token，插件自动建隧道、配 DNS、开 HTTPS，零命令行。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./client/client.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib/**/*.js",
+    "lib/page.html",
+    "client/client.js",
+    "cordis.patch.yml",
+    "LICENSE",
+    "README.md",
+    "README.en.md"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.1.5-rc.2 <1.0.0"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "dsh-remote",
+    "deepseek-harness",
+    "mobile",
+    "remote-control",
+    "phone",
+    "cloudflare-tunnel",
+    "one-click",
+    "self-hosted"
+  ],
+  "license": "MIT",
+  "author": "",
+  "contributors": [
+    {
+      "name": "xingzhen199186",
+      "url": "https://github.com/xingzhen199186",
+      "note": "原作者，dsh-mini-remote"
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/coderxxw/dsh-remote-lite.git"
+  },
+  "homepage": "https://github.com/coderxxw/dsh-remote-lite#readme",
+  "bugs": {
+    "url": "https://github.com/coderxxw/dsh-remote-lite/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots"
+      ]
+    }
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "*"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/schemastery": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "check": "node --check lib/index.js && node --check lib/server.js && node --check lib/tunnel.js && node --check client/client.js",
+    "prepublishOnly": "npm run check"
+  }
+}

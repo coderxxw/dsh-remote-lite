@@ -1,0 +1,29 @@
+{
+  "port": 3090,
+  "bindAddress": "auto",
+  "tunnel": {
+    "enabled": false,
+    "mode": "named",
+    "cloudflaredPath": "",
+    "hostname": "",
+    "accountId": "",
+    "apiToken": "",
+    "tunnelId": "",
+    "tunnelToken": ""
+  },
+  "token": "",
+  "maxHistory": 50,
+  "defaultMode": "minimal",
+  "notify": {
+    "enabled": false,
+    "channel": "none",
+    "barkUrl": "",
+    "ntfyUrl": "https://ntfy.sh",
+    "ntfyTopic": "",
+    "telegramBotToken": "",
+    "telegramChatId": "",
+    "onlyWhenBackground": true,
+    "maxLength": 200,
+    "sound": "default"
+  }
+}

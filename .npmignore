@@ -1,0 +1,27 @@
+# 测试与开发文件
+test/
+docs/
+examples/
+.github/
+
+# 打包产物
+*.tgz
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# 配置与产物
+.gitignore
+.npmignore
+.editorconfig
+.prettierrc
+eslint.config.js
+
+# 运行时数据
+settings.json
+state.json
+session-meta.json
+titles.json
+subagents.json
+token
+*.log
