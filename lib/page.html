@@ -473,7 +473,8 @@
   /* 立绘：每个姿势是一张「并排若干帧」的雪碧图（每帧 380×330），靠 background-position
      在帧与帧之间硬切，手脚就真的在动——不是把一张静图晃一晃。
      七层叠在一起，换姿势时交叉淡入。
-     帧数写在数据里（POSES[i].frames，缺省 2）；下面默认那套就是 2 帧的写法。 */
+     帧数写在数据里（POSES[i].frames，缺省 1 = 单帧整图）。雪碧图那两套写法（2 帧 / 6 帧）留着，
+     但本项目现在用的是单帧 AI 立绘，见 lib/art/。 */
   .work-stage {
     position: relative; flex: 0 0 auto;
     width: 122px; height: 106px;
@@ -506,6 +507,14 @@
   .pose[data-frames="6"] {
     background-size: 732px 106px;
     animation-name: poseFlip6;
+  }
+  /* 单帧立绘：整张图就是一个姿势，没有「帧」可切。
+   contain 让正方形原图在 122×106 的框里按高度贴合、水平居中，底边对齐——她的脚
+   不会浮在半空。**这类图用不着 poseFlip**，硬套就是每隔半秒把自己横向切一刀。 */
+  .pose[data-frames="1"] {
+    background-size: contain;
+    background-position: center bottom;
+    animation: none;
   }
   @keyframes poseFlip6 {
     0%      { background-position: 0 0; }
@@ -2855,7 +2864,7 @@
     // 跑从 2026-09-28 起是 6 帧：先把两帧画出来的头发摆动收小（甩幅 155.3 → 70.6），
     // 再用 tools/whale-sway.py 把这一趟切成六帧（甩幅 74.9），身体逐像素不动。
     // 时长仍是 flip 秒、不乘帧数，所以腿脚换帧的快慢和两帧时一模一样，六帧只是把头发那一趟切得更细。
-    { file: 'work-6-running', line: '跑一遍看看', flip: 0.4, frames: 6 },
+    { file: 'work-6-running', line: '跑一遍看看', flip: 0.4 },
     // 用户 2026-09-22 要的「跑步的动作」。它**不是第 8 个姿势，而是姿势之间的过渡**：
     // 序列是「姿势1 → 冲刺 → 姿势2 → 冲刺 → …」，表达「她干完一件、跑去干下一件」。
     // 所以它带 gap: true——不进轮播循环，只在每个姿势后面闪一下。
@@ -2870,7 +2879,7 @@
     // 越靠发梢摆得越大、相位越滞后，采样一个周期得到 6 帧。摆幅默认 15 像素、
     // 相位滞后 300°，量出来的甩幅 128.9（用户给的目标区间 110~140）。
     // **它只解决头发**：身体和腿仍然是那两帧，跑起来腿脚还是瞬间换的。
-    { file: 'work-8-sprinting', line: '', flip: 0.28, gap: true, frames: 6 },
+    { file: 'work-8-sprinting', line: '', flip: 0.28, gap: true },
     // 最后一个只在任务真的跑够久了才进轮播——到那时候说这句话才是实话。
     // **它必须留在最后**：posePool 用的是 POSES.length - 1，靠位置认它。
     { file: 'work-7-waiting', line: '还在忙，再等我一会儿', flip: 2.0 }
@@ -3111,9 +3120,9 @@
     for (var i = 0; i < POSES.length; i += 1) {
       var layer = document.createElement('div');
       layer.className = 'pose';
-      // 帧数决定显示宽度和用哪套关键帧（CSS 里 2 帧是默认，6 帧挂在 [data-frames="6"]）。
+      // 帧数决定显示宽度和用哪套关键帧：1 帧是单帧整图（本项目用的），2 帧 / 6 帧是雪碧图。
       // **时长不跟着帧数放大**：一圈还是 flip 秒，这样腿脚换帧的快慢跟以前一样。
-      layer.setAttribute('data-frames', POSES[i].frames || 2);
+      layer.setAttribute('data-frames', POSES[i].frames || 1);
       layer.style.backgroundImage = poseBackground(POSES[i].file);
       layer.style.animationDuration = POSES[i].flip + 's';
       stage.appendChild(layer);
@@ -3130,7 +3139,7 @@
     // 说话那张一起建好、一起预热：等台词来了再新建图层，会说第一个字之前先闪一下空白。
     var speak = document.createElement('div');
     speak.className = 'pose';
-    speak.setAttribute('data-frames', SPEAK_POSE.frames || 2);
+    speak.setAttribute('data-frames', SPEAK_POSE.frames || 1);
     speak.style.backgroundImage = poseBackground(SPEAK_POSE.file);
     speak.style.animationDuration = SPEAK_POSE.flip + 's';
     stage.appendChild(speak);
