@@ -2831,6 +2831,16 @@
   // 每个姿势是一张「并排若干帧」的雪碧图，flip 是**走完一整圈翻帧**的秒数
   // （代码里它就是 animation-duration：两帧时每帧占 flip/2，六帧时每帧占 flip/6）：
   // 敲键盘和小跑要快，端着茶等和托腮想事情要慢。节奏跟着动作走，才不像机器在闪。
+  /**
+   * 立绘按哪些后缀去找，以及凑不齐九张时退到哪一张。
+   *
+   * 顺序即优先级：同一张图同时有 webp 和 png 时用 webp（体积小一截）。
+   * 想让一套图生效，照着 `work-1-ready … work-9-talking`（加 `work-10-talking` 那张说话的）
+   * 命名放进 `lib/art/` 即可；只放一张的话，把它命名成 `POSE_FALLBACK` 那个名字。
+   */
+  var POSE_EXTS = ['webp', 'png'];
+  var POSE_FALLBACK = 'whale-girl';
+
   var POSES = [
     { file: 'work-1-ready', line: '收到，这就去办', flip: 0.5 },
     { file: 'work-2-reading', line: '先翻翻资料', flip: 1.5 },
@@ -2959,9 +2969,32 @@
   }
 
   /** 立绘地址。走 query 而不是靠 cookie：从门禁页手输 token 进来时是没有 cookie 的。 */
-  function artUrl(file) {
-    return '/mini/art/' + file + '.webp?token=' + encodeURIComponent(state.token)
+  function artUrl(file, ext) {
+    return '/mini/art/' + file + '.' + (ext || POSE_EXTS[0]) + '?token=' + encodeURIComponent(state.token)
       + '&v=' + encodeURIComponent(BUILD);
+  }
+
+  /**
+   * 一张姿势的 background-image 串。
+   *
+   * 为什么是一串而不是一张：立绘可能来自不同格式的图包（位图多半是 png，
+   * 原作那套是 webp，自己画的矢量是 svg），而 CSS 的多层背景**哪层没加载出来就不画哪层**，
+   * 于是把候选按优先级叠起来，浏览器自己会挑能用的那张 —— 服务端不用改、页面不用探测。
+   *
+   * 末尾还会再挂一张兜底图（POSE_FALLBACK）：只放了一张角色图、凑不齐九种姿势时，
+   * 九张都退到它，她至少还在，而不是整块空着。
+   */
+  function poseBackground(file) {
+    var out = [];
+    for (var e = 0; e < POSE_EXTS.length; e += 1) {
+      out.push('url("' + artUrl(file, POSE_EXTS[e]) + '")');
+    }
+    if (POSE_FALLBACK && POSE_FALLBACK !== file) {
+      for (var f = 0; f < POSE_EXTS.length; f += 1) {
+        out.push('url("' + artUrl(POSE_FALLBACK, POSE_EXTS[f]) + '")');
+      }
+    }
+    return out.join(', ');
   }
 
   /**
@@ -3081,29 +3114,46 @@
       // 帧数决定显示宽度和用哪套关键帧（CSS 里 2 帧是默认，6 帧挂在 [data-frames="6"]）。
       // **时长不跟着帧数放大**：一圈还是 flip 秒，这样腿脚换帧的快慢跟以前一样。
       layer.setAttribute('data-frames', POSES[i].frames || 2);
-      layer.style.backgroundImage = 'url("' + artUrl(POSES[i].file) + '")';
+      layer.style.backgroundImage = poseBackground(POSES[i].file);
       layer.style.animationDuration = POSES[i].flip + 's';
       stage.appendChild(layer);
       work.layers.push(layer);
       // #work 是 hidden（display:none），浏览器**不会**为它下载背景图。
       // 所以这里得拿一个游离的 <img> 主动拉一次，否则第一次「正在执行」会先闪空白。
-      var warm = document.createElement('img');
-      warm.src = artUrl(POSES[i].file);
+      // 每个后缀各拉一次：拿不准这套图是 webp 还是 png，拉错的那条就是个 404，
+      // 比「发完指令先空白两秒」便宜得多。
+      for (var w = 0; w < POSE_EXTS.length; w += 1) {
+        var warm = document.createElement('img');
+        warm.src = artUrl(POSES[i].file, POSE_EXTS[w]);
+      }
     }
     // 说话那张一起建好、一起预热：等台词来了再新建图层，会说第一个字之前先闪一下空白。
     var speak = document.createElement('div');
     speak.className = 'pose';
     speak.setAttribute('data-frames', SPEAK_POSE.frames || 2);
-    speak.style.backgroundImage = 'url("' + artUrl(SPEAK_POSE.file) + '")';
+    speak.style.backgroundImage = poseBackground(SPEAK_POSE.file);
     speak.style.animationDuration = SPEAK_POSE.flip + 's';
     stage.appendChild(speak);
     work.speakLayer = speak;
-    var warmSpeak = document.createElement('img');
     // 说话那张要是加载不出来（图还没画好、或者网络半路断了）：**别把舞台清空**。
     // 默认按「图在」处理，只有真报错才翻成 false——正常路径一个字都不变；
     // 翻成 false 之后就退成「台词照说、人照轮播」，而不是她整个消失（见 paintSpeak）。
-    warmSpeak.onerror = function () { work.speakReady = false; };
-    warmSpeak.src = artUrl(SPEAK_POSE.file);
+    //
+    // 判据是「所有候选后缀都拿不到」才算没有：只认 webp 的话，一套 png 图会被判成
+    // 「她没有说话那张」，于是说话时永远停在轮播那一格。
+    var pending = POSE_EXTS.length;
+    var anyLoaded = false;
+    var settle = function (success) {
+      if (success) anyLoaded = true;
+      pending -= 1;
+      if (pending === 0) work.speakReady = anyLoaded;
+    };
+    for (var se = 0; se < POSE_EXTS.length; se += 1) {
+      var warmSpeak = document.createElement('img');
+      warmSpeak.onload = function () { settle(true); };
+      warmSpeak.onerror = function () { settle(false); };
+      warmSpeak.src = artUrl(SPEAK_POSE.file, POSE_EXTS[se]);
+    }
     paintPose(0);
   }
 

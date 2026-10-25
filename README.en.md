@@ -335,3 +335,9 @@ The icon is based on Twemoji's 🐳 ([CC-BY 4.0](https://github.com/jdecked/twem
 ## License
 
 [MIT](LICENSE) © [coderxxw](https://github.com/coderxxw)
+
+Exception: character art under `lib/art/` is **not** covered by MIT. If it uses the community
+"whale girl" fan character, that artwork is licensed
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.en) — attribution,
+**non-commercial**, share-alike — and is excluded from the npm package.
+See [lib/art/README.md](lib/art/README.md).

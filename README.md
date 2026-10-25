@@ -335,3 +335,7 @@ npm run check   # 语法检查
 ## 许可证
 
 [MIT](LICENSE) © [coderxxw](https://github.com/coderxxw)
+
+例外：`lib/art/` 下的角色立绘**不适用 MIT**。若使用社区「鲸鱼娘」二创形象，其授权为
+[CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh-hans)
+（署名、**非商业**、相同方式共享），且该目录不进 npm 包 —— 详见 [lib/art/README.md](lib/art/README.md)。
